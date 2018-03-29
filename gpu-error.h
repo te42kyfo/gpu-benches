@@ -1,3 +1,5 @@
+#include <iostream>
+
 #pragma once
 #define GPU_ERROR(ans)                          \
   { gpuAssert((ans), __FILE__, __LINE__); }
