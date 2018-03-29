@@ -2,7 +2,19 @@
 
 Short CUDA code that scans a range of Computational Intensities, by varying the amount of inner loop trips. The shell script series.sh builds an executable for each value, and executes them one afer another after finishing building.
 
-The Code runs simultaneously on all available devices.
+The Code runs simultaneously on all available devices. Example output on a Tesla V100 PCIe 16GB:
+
+```console
+0 640 blocks     0 its      0.125 Fl/B        886 GB/s       111 GF
+0 640 blocks     8 its      1.125 Fl/B        883 GB/s       994 GF
+0 640 blocks    16 its      2.125 Fl/B        881 GB/s      1872 GF
+0 640 blocks    24 its      3.125 Fl/B        877 GB/s      2740 GF
+[...]
+0 640 blocks    88 its      11.125 Fl/B        608 GB/s      6769 GF
+0 640 blocks    96 its      12.125 Fl/B        561 GB/s      6799 GF
+0 640 blocks   104 its      13.125 Fl/B        520 GB/s      6823 GF
+0 640 blocks   112 its      14.125 Fl/B        474 GB/s      6699 GF
+```
 
 
 # cuda-memcpy
@@ -12,7 +24,7 @@ Measures the host-to-device transfer rate of the cudaMemcpy function over a rang
 
 # um-stream
 
-Measures CUDA Unified Memory transfer rate using a STREAM triad kernel. A range of data set sizes is used, both smaller and larger than the device memory. Example output:
+Measures CUDA Unified Memory transfer rate using a STREAM triad kernel. A range of data set sizes is used, both smaller and larger than the device memory. Example output on a Tesla V100 PCIe 16GB:
 
 ```console
  buffer size      time   spread   bandwidth
@@ -33,7 +45,7 @@ Measures CUDA Unified Memory transfer rate using a STREAM triad kernel. A range 
 
 # cuda-cache
 
-Measures bandwidths of different cache levels. Launches one thread block per SM. Each thread block reads the contents of the same buffer. Varying buffer sizes changes the targeted cache level. Example output
+Measures bandwidths of different cache levels. Launches one thread block per SM. Each thread block reads the contents of the same buffer. Varying buffer sizes changes the targeted cache level. Example output on a Tesla V100 PCIe 16GB:
 ```console
      data set   exec time     spread        Eff. bw      DRAM read     DRAM write        L2 Read       L2 Write      Tex Read
          4 kB         1ms       0.2%    5559.0 GB/s       0.0 GB/s       0.0 GB/s       0.8 GB/s       0.0 GB/s   11217.9 GB/s
