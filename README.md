@@ -12,7 +12,24 @@ Measures the host-to-device transfer rate of the cudaMemcpy function over a rang
 
 # um-stream
 
-Measures CUDA Unified Memory transfer rate using a STREAM triad kernel. A range of data set sizes is used, both smaller and larger than the device memory.
+Measures CUDA Unified Memory transfer rate using a STREAM triad kernel. A range of data set sizes is used, both smaller and larger than the device memory. Example output:
+
+```console
+ buffer size      time   spread   bandwidth
+       24 MB     0.1ms     3.2%   426.2GB/s
+       48 MB     0.1ms    24.2%   511.6GB/s
+       96 MB     0.1ms     0.8%   688.0GB/s
+      192 MB     0.3ms     1.8%   700.0GB/s
+      384 MB     0.5ms     0.5%   764.6GB/s
+      768 MB     1.0ms     0.2%   801.8GB/s
+     1536 MB     2.0ms     0.0%   816.9GB/s
+     3072 MB     3.9ms     0.1%   822.9GB/s
+     6144 MB     7.8ms     0.2%   823.8GB/s
+    12288 MB    15.7ms     0.1%   822.1GB/s
+    24576 MB  5108.3ms     0.5%     5.0GB/s
+    49152 MB 10284.7ms     0.8%     5.0GB/s
+```
+
 
 # cuda-cache
 
