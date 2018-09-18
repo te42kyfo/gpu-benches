@@ -10,12 +10,12 @@ int main(int argc, char** argv) {
   const size_t buffer_size_bytes = (size_t)1024 * 1024 * 1024;
 
   GPU_ERROR(cudaMalloc(&device_buffer, buffer_size_bytes));
-  GPU_ERROR(cudaMallocManaged(&host_buffer, buffer_size_bytes));
-  //  GPU_ERROR(cudaMallocHost(&host_buffer, buffer_size_bytes));
+  //GPU_ERROR(cudaMallocManaged(&host_buffer, buffer_size_bytes));
+    GPU_ERROR(cudaMallocHost(&host_buffer, buffer_size_bytes));
 
   GPU_ERROR(cudaDeviceSynchronize());
 
-  const int num_streams = 8;
+  const int num_streams = 1;
   cudaStream_t streams[num_streams];
 
   for (int i = 0; i < num_streams; i++) {
@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
   memset(host_buffer, 0, buffer_size_bytes);
 
   for (size_t transfer_size_bytes = 1024;
-       transfer_size_bytes <= buffer_size_bytes / num_streams / 8;
+       transfer_size_bytes <= buffer_size_bytes / num_streams;
        transfer_size_bytes *= 2) {
     MeasurementSeries time;
     for (int sample = 0; sample < 5; sample++) {
@@ -53,6 +53,6 @@ int main(int argc, char** argv) {
   }
 
   GPU_ERROR(cudaFree(device_buffer));
-  GPU_ERROR(cudaFree(host_buffer));
-  // free(host_buffer);
+  //  GPU_ERROR(cudaFree(host_buffer));
+  GPU_ERROR(cudaFreeHost(host_buffer));
 }
