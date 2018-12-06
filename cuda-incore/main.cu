@@ -17,7 +17,7 @@ template <typename T> __global__ void initKernel(T *A, size_t N) {
 }
 
 template <typename T, int N, int M>
-__global__ void dependent_FMA_mixed(T p, T *A, int iters) {
+__global__ void FMA_mixed(T p, T *A, int iters) {
 #pragma unroll(1)
   for (int iter = 0; iter < iters; iter++) {
     T t[M];
@@ -42,7 +42,7 @@ __global__ void dependent_FMA_mixed(T p, T *A, int iters) {
 }
 
 template <typename T, int N, int M>
-__global__ void dependent_FMA_seperated(T p, T *A, int iters) {
+__global__ void FMA_separated(T p, T *A, int iters) {
 
   for (int iter = 0; iter < iters; iter++) {
 #pragma unroll
@@ -59,7 +59,7 @@ __global__ void dependent_FMA_seperated(T p, T *A, int iters) {
 }
 
 template <typename T, int N, int M>
-__global__ void dependent_div_seperated(T p, T *A, int iters) {
+__global__ void DIV_separated(T p, T *A, int iters) {
 
 #pragma unroll(1)
   for (int iter = 0; iter < iters; iter++) {
@@ -76,7 +76,7 @@ __global__ void dependent_div_seperated(T p, T *A, int iters) {
 }
 
 template <typename T, int N, int M>
-__global__ void dependent_sqrt_seperated(T p, T *A, int iters) {
+__global__ void SQRT_separated(T p, T *A, int iters) {
 
 #pragma unroll(1)
   for (int iter = 0; iter < iters; iter++) {
@@ -93,7 +93,8 @@ __global__ void dependent_sqrt_seperated(T p, T *A, int iters) {
   }
 }
 
-template <typename T, int N, int M> double measure(int warpCount) {
+template <typename T, int N, int M>
+double measure(int warpCount, void (*kernel)(T, T *, int)) {
   const int iters = 10000;
   const int blockSize = 32 * warpCount;
   const int blockCount = 1;
@@ -105,14 +106,12 @@ template <typename T, int N, int M> double measure(int warpCount) {
   initKernel<<<52, 256>>>(dA, iters * 2);
   GPU_ERROR(cudaDeviceSynchronize());
 
-  dependent_div_seperated<T, N, M>
-      <<<blockCount, blockSize>>>((T)0.32, dA, iters);
+  kernel<<<blockCount, blockSize>>>((T)0.32, dA, iters);
 
   GPU_ERROR(cudaDeviceSynchronize());
   for (int i = 0; i < 1; i++) {
     double t1 = dtime();
-    dependent_div_seperated<T, N, M>
-        <<<blockCount, blockSize>>>((T)0.32, dA, iters);
+    kernel<<<blockCount, blockSize>>>((T)0.32, dA, iters);
     GPU_ERROR(cudaDeviceSynchronize());
     double t2 = dtime();
     time.add(t2 - t1);
@@ -128,31 +127,47 @@ template <typename T, int N, int M> double measure(int warpCount) {
   return rcpThru;
 }
 
-template <typename T>
-map<pair<int, int>, double> measureTabular(int maxWarpCount) {
+template <typename T> void measureTabular(int maxWarpCount) {
 
-  map<pair<int, int>, double> results;
+  vector<map<pair<int, int>, double>> r(3);
+  const int N = 128;
   for (int warpCount = 1; warpCount <= maxWarpCount; warpCount *= 2) {
-    results[{warpCount, 1}] = measure<T, 128, 1>(warpCount);
-    results[{warpCount, 2}] = measure<T, 128, 2>(warpCount);
-    results[{warpCount, 3}] = measure<T, 128, 3>(warpCount);
-    results[{warpCount, 4}] = measure<T, 128, 4>(warpCount);
-    results[{warpCount, 5}] = measure<T, 128, 5>(warpCount);
-    results[{warpCount, 6}] = measure<T, 128, 6>(warpCount);
-    results[{warpCount, 7}] = measure<T, 128, 7>(warpCount);
-    results[{warpCount, 8}] = measure<T, 128, 8>(warpCount);
+    r[0][{warpCount, 1}] = measure<T, N, 1>(warpCount, FMA_mixed<T, N, 1>);
+    r[1][{warpCount, 1}] = measure<T, N, 1>(warpCount, DIV_separated<T, N, 1>);
+    r[2][{warpCount, 1}] = measure<T, N, 1>(warpCount, SQRT_separated<T, N, 1>);
+    r[0][{warpCount, 2}] = measure<T, N, 2>(warpCount, FMA_mixed<T, N, 2>);
+    r[1][{warpCount, 2}] = measure<T, N, 2>(warpCount, DIV_separated<T, N, 2>);
+    r[2][{warpCount, 2}] = measure<T, N, 2>(warpCount, SQRT_separated<T, N, 2>);
+    r[0][{warpCount, 3}] = measure<T, N, 3>(warpCount, FMA_mixed<T, N, 3>);
+    r[1][{warpCount, 3}] = measure<T, N, 3>(warpCount, DIV_separated<T, N, 3>);
+    r[2][{warpCount, 3}] = measure<T, N, 3>(warpCount, SQRT_separated<T, N, 3>);
+    r[0][{warpCount, 4}] = measure<T, N, 4>(warpCount, FMA_mixed<T, N, 4>);
+    r[1][{warpCount, 4}] = measure<T, N, 4>(warpCount, DIV_separated<T, N, 4>);
+    r[2][{warpCount, 4}] = measure<T, N, 4>(warpCount, SQRT_separated<T, N, 4>);
+    r[0][{warpCount, 5}] = measure<T, N, 5>(warpCount, FMA_mixed<T, N, 5>);
+    r[1][{warpCount, 5}] = measure<T, N, 5>(warpCount, DIV_separated<T, N, 5>);
+    r[2][{warpCount, 5}] = measure<T, N, 5>(warpCount, SQRT_separated<T, N, 5>);
+    r[0][{warpCount, 6}] = measure<T, N, 6>(warpCount, FMA_mixed<T, N, 6>);
+    r[1][{warpCount, 6}] = measure<T, N, 6>(warpCount, DIV_separated<T, N, 6>);
+    r[2][{warpCount, 6}] = measure<T, N, 6>(warpCount, SQRT_separated<T, N, 6>);
+    r[0][{warpCount, 7}] = measure<T, N, 7>(warpCount, FMA_mixed<T, N, 7>);
+    r[1][{warpCount, 7}] = measure<T, N, 7>(warpCount, DIV_separated<T, N, 7>);
+    r[2][{warpCount, 7}] = measure<T, N, 7>(warpCount, SQRT_separated<T, N, 7>);
+    r[0][{warpCount, 8}] = measure<T, N, 8>(warpCount, FMA_mixed<T, N, 8>);
+    r[1][{warpCount, 8}] = measure<T, N, 8>(warpCount, DIV_separated<T, N, 8>);
+    r[2][{warpCount, 8}] = measure<T, N, 8>(warpCount, SQRT_separated<T, N, 8>);
     cout << "\n";
   }
 
-  for (int warpCount = 1; warpCount <= maxWarpCount; warpCount *= 2) {
-    for (int streams = 1; streams <= 8; streams++) {
-      cout << setw(6) << setprecision(2) << results[{warpCount, streams}]
-           << " ";
+  for (int i = 0; i < 3; i++) {
+    for (int warpCount = 1; warpCount <= maxWarpCount; warpCount *= 2) {
+      for (int streams = 1; streams <= 8; streams++) {
+        cout << setw(6) << setprecision(2) << r[i][{warpCount, streams}] << " ";
+      }
+      cout << "\n";
     }
     cout << "\n";
   }
-
-  return results;
 }
 
 int main(int argc, char **argv) { measureTabular<double>(32); }
