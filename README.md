@@ -63,24 +63,21 @@ Measures bandwidths of different cache levels. Launches one thread block per SM.
 
 Measures the bandwidth of several streaming kernels for varying occupancy.
 
- - init: A[i] = c
 
- - sum1/sum2/4/8/16: sum += A[i], varying levels of unrolling, no global reduction
-
- - dot: sum += A[i]*B[i]
-
- - tdot: sum += A[i]*B[i]*C[i]
-
- - scale: A[i] = B[i]*c
-
- - triad: A[i] = B[i] + c*C[i]
-
- - sch_triad: A[i] = B[i] + C[i]*D[i]
+Kernel | Formula |  | |
+-------|----------|--|--|
+init  | A[i] = c |  | 1 store stream
+sumN | sum += A[i] | N times unrolling, no global reduction | N load streams
+dot | sum += A[i] * B[i] | no global reduction | 2 load streams
+tdot | sum += A[i] * B[i] * C[i] | no global reduction | 3 load streams
+scale | A[i] = B[i] * c |  | 1 load stream, 1 store stream
+triad | A[i] = B[i] + c * C[i] | | 2 load streams, 1 store stream
+sch_triad | A[i] = B[i] + C[i] * D[i] | | 3 load streams, 1 store stream
 
 
 Example Results for a Tesla V100-PCIe-16GB:
 ``` console
-   blocks     threads     %occ  |               init       sum1       sum2       sum4       sum8      sum16        dot       tdot      scale      triad  sch_triad
+    blocks     threads     %occ  |               init       sum1       sum2       sum4       sum8      sum16        dot       tdot      scale      triad  sch_triad
         1          128     0.08  |  GB/s:        37.4        3.0        5.8       10.1       15.0       16.3        5.6        8.3        5.7        8.1       10.2
         2          256      0.2  |  GB/s:        74.7        6.0       11.3       19.8       29.6       32.4       11.1       15.9       11.5       15.9       20.0
         4          512      0.3  |  GB/s:       149.4       11.9       23.2       39.5       60.2       64.9       22.0       31.4       22.4       31.3       39.4
