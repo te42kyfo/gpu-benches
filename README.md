@@ -102,3 +102,39 @@ Example Results for a Tesla V100-PCIe-16GB:
      1200       153600     93.8  |  GB/s:       825.2      877.8      889.3      890.7      883.8      884.0      890.8      893.3      788.9      829.4      844.2
      1280       163840    100.0  |  GB/s:       834.1      878.9      888.4      891.0      884.5      877.1      891.0      894.5      787.8      829.1      844.0
 ```
+
+# cuda-latency
+
+Pointer chasing benchmark for latency measurement. A single warp fully traverses a buffer in random order. A partitioning scheme is used to ensure that all cache lines are hit exactly once before they are accessed again. Latency in clock cycles is computed with the current clock rate.
+
+Example results for a Tesla-V100-PCIe-16GB
+``` console
+   MHz        kB          ms    cycles
+ 1372          0         7.7    81.1
+ 1372          0         7.7    80.7
+ 1380          1         7.7    81.1
+ 1380          2         7.7    81.2
+ 1380          4         7.7    81.2
+ 1380          8         7.7    80.9
+ 1380         16         7.7    81.0
+ 1380         32         7.7    81.4
+ 1380         64         7.8    82.1
+ 1380        128        12.2   128.9
+ 1380        256        25.2   265.2
+ 1380        512        25.2   265.2
+ 1380       1024        25.2   265.2
+ 1380       2048        25.2   265.2
+ 1380       4096        25.2   265.2
+ 1380       8192        44.4   467.9
+ 1380      16384        88.9   468.1
+ 1380      32768       177.8   467.9
+ 1380      65536       358.9   472.4
+ 1380     131072       721.4   474.7
+ 1380     262144      1446.1   475.8
+ 1380     524288      2895.4   476.3
+ 1380    1048576      5794.2   476.6
+ 1380    2097152     11592.1   476.8
+ 1380    4194304     23191.0   476.9
+```
+
+Both the L1 cache (128kB) and the L2 cache(6MB) are clearly visible
