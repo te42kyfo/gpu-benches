@@ -114,23 +114,28 @@ void measureFunc(kernel_ptr_type func, int stream_count, int block_count,
 
   MeasurementSeries time;
 
-  func<<<block_count, block_size>>>(dA, dB, dC, dD, max_buffer_size);
+  size_t buffer_size =
+    min((size_t) max_buffer_size,  ((size_t) block_size * block_count * max_buffer_size / 1024 ));
+
+  func<<<block_count, block_size>>>(dA, dB, dC, dD, buffer_size);
 
   for (int iter = 0; iter < 10; iter++) {
     GPU_ERROR(cudaDeviceSynchronize());
     double t1 = dtime();
-    func<<<block_count, block_size>>>(dA, dB, dC, dD, max_buffer_size);
+    GPU_ERROR(cudaDeviceSynchronize());
+    func<<<block_count, block_size>>>(dA, dB, dC, dD, buffer_size);
+    func<<<block_count, block_size>>>(dA, dB, dC, dD, buffer_size);
     GPU_ERROR(cudaDeviceSynchronize());
     double t2 = dtime();
-    time.add(t2 - t1);
+    time.add((t2 - t1) / 2);
   }
 
-  cout << fixed << setprecision(1)
+  cout << fixed << setprecision(2)
        << setw(6)
        //<< time.value() * 1000 << " "
        //<< setw(5) << time.spread() * 100
        << "   " << setw(5)
-       << stream_count * max_buffer_size * sizeof(double) / time.value() * 1e-9;
+       << stream_count * buffer_size * sizeof(double) / time.value() * 1e-9;
   cout.flush();
 }
 
@@ -181,9 +186,14 @@ int main(int argc, char **argv) {
 
   int max_blocks = maxActiveBlocks * smCount;
 
-  cout << "    blocks     threads     %occ  |               init       sum1       sum2  "
+  cout << "    blocks     threads     %occ  |               init       sum1    "
+          "   sum2  "
           "     sum4       sum8      sum16        dot       tdot      scale "
           "     triad  sch_triad\n";
+
+  for (int block_size = 32; block_size < 128; block_size *= 2) {
+    measureKernels(kernels, 1, block_size, max_blocks);
+  }
 
   for (int i = 1; i < smCount; i *= 2) {
     measureKernels(kernels, i, block_size, max_blocks);
