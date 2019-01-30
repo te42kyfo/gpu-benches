@@ -7,9 +7,9 @@
  * This software contains source code provided by NVIDIA Corporation.
  */
 
+#include <cstdio>
 #include <cuda.h>
 #include <cupti.h>
-#include <cstdio>
 #include <functional>
 #include <iostream>
 
@@ -19,41 +19,41 @@ bool abortMeasureMetric;
 
 #define VERBOSE false
 
-#define DRIVER_API_CALL(apiFuncCall)                                       \
-  do {                                                                     \
-    CUresult _status = apiFuncCall;                                        \
-    if (_status != CUDA_SUCCESS) {                                         \
-      fprintf(stderr, "%s:%d: error: function %s failed with error %d.\n", \
-              __FILE__, __LINE__, #apiFuncCall, _status);                  \
-      exit(-1);                                                            \
-    }                                                                      \
+#define DRIVER_API_CALL(apiFuncCall)                                           \
+  do {                                                                         \
+    CUresult _status = apiFuncCall;                                            \
+    if (_status != CUDA_SUCCESS) {                                             \
+      fprintf(stderr, "%s:%d: error: function %s failed with error %d.\n",     \
+              __FILE__, __LINE__, #apiFuncCall, _status);                      \
+      exit(-1);                                                                \
+    }                                                                          \
   } while (0)
 
-#define RUNTIME_API_CALL(apiFuncCall)                                         \
-  do {                                                                        \
-    cudaError_t _status = apiFuncCall;                                        \
-    if (_status != cudaSuccess) {                                             \
-      fprintf(stderr, "%s:%d: error: function %s failed with error %s.\n",    \
-              __FILE__, __LINE__, #apiFuncCall, cudaGetErrorString(_status)); \
-      exit(-1);                                                               \
-    }                                                                         \
+#define RUNTIME_API_CALL(apiFuncCall)                                          \
+  do {                                                                         \
+    cudaError_t _status = apiFuncCall;                                         \
+    if (_status != cudaSuccess) {                                              \
+      fprintf(stderr, "%s:%d: error: function %s failed with error %s.\n",     \
+              __FILE__, __LINE__, #apiFuncCall, cudaGetErrorString(_status));  \
+      exit(-1);                                                                \
+    }                                                                          \
   } while (0)
 
-#define CUPTI_CALL(call)                                                   \
-  do {                                                                     \
-    CUptiResult _status = call;                                            \
-    if (_status != CUPTI_SUCCESS) {                                        \
-      const char *errstr;                                                  \
-      cuptiGetResultString(_status, &errstr);                              \
-      fprintf(stderr, "%s:%d: error: function %s failed with error %s.\n", \
-              __FILE__, __LINE__, #call, errstr);                          \
-    }                                                                      \
+#define CUPTI_CALL(call)                                                       \
+  do {                                                                         \
+    CUptiResult _status = call;                                                \
+    if (_status != CUPTI_SUCCESS) {                                            \
+      const char *errstr;                                                      \
+      cuptiGetResultString(_status, &errstr);                                  \
+      fprintf(stderr, "%s:%d: error: function %s failed with error %s.\n",     \
+              __FILE__, __LINE__, #call, errstr);                              \
+    }                                                                          \
   } while (0)
 
 #define ALIGN_SIZE (8)
-#define ALIGN_BUFFER(buffer, align)                                 \
-  (((uintptr_t)(buffer) & ((align)-1))                              \
-       ? ((buffer) + (align) - ((uintptr_t)(buffer) & ((align)-1))) \
+#define ALIGN_BUFFER(buffer, align)                                            \
+  (((uintptr_t)(buffer) & ((align)-1))                                         \
+       ? ((buffer) + (align) - ((uintptr_t)(buffer) & ((align)-1)))            \
        : (buffer))
 
 // User data for event collection callback
@@ -79,13 +79,15 @@ void CUPTIAPI getMetricValueCallback(void *userdata,
                                      CUpti_CallbackDomain domain,
                                      CUpti_CallbackId cbid,
                                      const CUpti_CallbackData *cbInfo) {
-  if (abortMeasureMetric) return;
+  if (abortMeasureMetric)
+    return;
   MetricData_t *metricData = (MetricData_t *)userdata;
   unsigned int i, j, k;
 
   // This callback is enabled only for launch so we shouldn't see
   // anything else.
-  if (cbid != CUPTI_RUNTIME_TRACE_CBID_cudaLaunch_v3020) {
+  if ((cbid != CUPTI_RUNTIME_TRACE_CBID_cudaLaunch_v3020) &&
+      (cbid != CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_v7000)) {
     printf("%s:%d: unexpected cbid %d\n", __FILE__, __LINE__, cbid);
     exit(-1);
   }
@@ -163,7 +165,8 @@ void CUPTIAPI getMetricValueCallback(void *userdata,
 
         // sum collect event values from all instances
         sum = 0;
-        for (k = 0; k < numInstances; k++) sum += values[k];
+        for (k = 0; k < numInstances; k++)
+          sum += values[k];
 
         // normalize the event value to represent the total number of
         // domain instances on the device
@@ -184,7 +187,8 @@ void CUPTIAPI getMetricValueCallback(void *userdata,
             printf("\t%s = %llu (", eventName, (unsigned long long)sum);
             if (numInstances > 1) {
               for (k = 0; k < numInstances; k++) {
-                if (k != 0) printf(", ");
+                if (k != 0)
+                  printf(", ");
                 printf("%llu", (unsigned long long)values[k]);
               }
             }
@@ -239,7 +243,8 @@ static void CUPTIAPI bufferCompleted(CUcontext ctx, uint32_t streamId,
   }
 
   kernelDuration = kernel->end - kernel->start;
-  if (VERBOSE) std::cout << "(Kernel Duration: " << kernelDuration << ")\n";
+  if (VERBOSE)
+    std::cout << "(Kernel Duration: " << kernelDuration << ")\n";
   free(buffer);
 }
 
@@ -268,7 +273,8 @@ double measureMetric(std::function<double()> runPass, const char *metricName) {
   CUpti_MetricValue metricValue;
 
   CUptiResult res = cuptiMetricGetIdFromName(device, metricName, &metricId);
-  if (res != CUPTI_SUCCESS) return 0.0;
+  if (res != CUPTI_SUCCESS)
+    return 0.0;
 
   // runPass();
   cudaDeviceSynchronize();
@@ -294,6 +300,10 @@ double measureMetric(std::function<double()> runPass, const char *metricName) {
   CUPTI_CALL(cuptiEnableCallback(1, subscriber, CUPTI_CB_DOMAIN_RUNTIME_API,
                                  CUPTI_RUNTIME_TRACE_CBID_cudaLaunch_v3020));
 
+  CUPTI_CALL(
+      cuptiEnableCallback(1, subscriber, CUPTI_CB_DOMAIN_RUNTIME_API,
+                          CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_v7000));
+
   // allocate space to hold all the events needed for the metric
   cuptiMetricGetIdFromName(device, metricName, &metricId);
 
@@ -310,7 +320,8 @@ double measureMetric(std::function<double()> runPass, const char *metricName) {
   CUPTI_CALL(cuptiMetricCreateEventGroupSets(context, sizeof(metricId),
                                              &metricId, &passData));
   for (pass = 0; pass < passData->numSets; pass++) {
-    if (VERBOSE) printf("Pass %u\n", pass);
+    if (VERBOSE)
+      printf("Pass %u\n", pass);
     metricData.eventGroups = passData->sets + pass;
     runPass();
   }
@@ -336,44 +347,44 @@ double measureMetric(std::function<double()> runPass, const char *metricName) {
     CUPTI_CALL(cuptiMetricGetAttribute(metricId, CUPTI_METRIC_ATTR_VALUE_KIND,
                                        &valueKindSize, &valueKind));
     switch (valueKind) {
-      case CUPTI_METRIC_VALUE_KIND_DOUBLE:
-        if (VERBOSE)
-          printf("Metric %s = %f\n", metricName, metricValue.metricValueDouble);
-        val = metricValue.metricValueDouble;
-        break;
-      case CUPTI_METRIC_VALUE_KIND_UINT64:
-        if (VERBOSE)
-          printf("Metric %s = %llu\n", metricName,
-                 (unsigned long long)metricValue.metricValueUint64);
-        val = metricValue.metricValueUint64;
-        break;
-      case CUPTI_METRIC_VALUE_KIND_INT64:
-        if (VERBOSE)
-          printf("Metric %s = %lld\n", metricName,
-                 (long long)metricValue.metricValueInt64);
-        val = metricValue.metricValueInt64;
-        break;
-      case CUPTI_METRIC_VALUE_KIND_PERCENT:
-        if (VERBOSE)
-          printf("Metric %s = %f%%\n", metricName,
-                 metricValue.metricValuePercent);
-        val = metricValue.metricValuePercent;
-        break;
-      case CUPTI_METRIC_VALUE_KIND_THROUGHPUT:
-        if (VERBOSE)
-          printf("Metric %s = %llu bytes/sec\n", metricName,
-                 (unsigned long long)metricValue.metricValueThroughput);
-        val = metricValue.metricValueThroughput;
-        break;
-      case CUPTI_METRIC_VALUE_KIND_UTILIZATION_LEVEL:
-        if (VERBOSE)
-          printf("Metric %s = utilization level %u\n", metricName,
-                 (unsigned int)metricValue.metricValueUtilizationLevel);
-        val = (unsigned int)metricValue.metricValueUtilizationLevel;
-        break;
-      default:
-        fprintf(stderr, "error: unknown value kind\n");
-        return 0;
+    case CUPTI_METRIC_VALUE_KIND_DOUBLE:
+      if (VERBOSE)
+        printf("Metric %s = %f\n", metricName, metricValue.metricValueDouble);
+      val = metricValue.metricValueDouble;
+      break;
+    case CUPTI_METRIC_VALUE_KIND_UINT64:
+      if (VERBOSE)
+        printf("Metric %s = %llu\n", metricName,
+               (unsigned long long)metricValue.metricValueUint64);
+      val = metricValue.metricValueUint64;
+      break;
+    case CUPTI_METRIC_VALUE_KIND_INT64:
+      if (VERBOSE)
+        printf("Metric %s = %lld\n", metricName,
+               (long long)metricValue.metricValueInt64);
+      val = metricValue.metricValueInt64;
+      break;
+    case CUPTI_METRIC_VALUE_KIND_PERCENT:
+      if (VERBOSE)
+        printf("Metric %s = %f%%\n", metricName,
+               metricValue.metricValuePercent);
+      val = metricValue.metricValuePercent;
+      break;
+    case CUPTI_METRIC_VALUE_KIND_THROUGHPUT:
+      if (VERBOSE)
+        printf("Metric %s = %llu bytes/sec\n", metricName,
+               (unsigned long long)metricValue.metricValueThroughput);
+      val = metricValue.metricValueThroughput;
+      break;
+    case CUPTI_METRIC_VALUE_KIND_UTILIZATION_LEVEL:
+      if (VERBOSE)
+        printf("Metric %s = utilization level %u\n", metricName,
+               (unsigned int)metricValue.metricValueUtilizationLevel);
+      val = (unsigned int)metricValue.metricValueUtilizationLevel;
+      break;
+    default:
+      fprintf(stderr, "error: unknown value kind\n");
+      return 0;
     }
   }
 
@@ -381,4 +392,4 @@ double measureMetric(std::function<double()> runPass, const char *metricName) {
   // cuCtxDestroy(context);
   return val;
 }
-}
+} // namespace
