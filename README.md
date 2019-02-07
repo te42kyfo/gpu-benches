@@ -2,18 +2,30 @@
 
 Short CUDA code that scans a range of Computational Intensities, by varying the amount of inner loop trips. The shell script series.sh builds an executable for each value, and executes them one afer another after finishing building.
 
-The Code runs simultaneously on all available devices. Example output on a Tesla V100 PCIe 16GB:
+The Code runs simultaneously on all available devices. Example output on four Tesla V100 PCIe 16GB:
 
 ```console
-0 640 blocks     0 its      0.125 Fl/B        886 GB/s       111 GF
-0 640 blocks     8 its      1.125 Fl/B        883 GB/s       994 GF
-0 640 blocks    16 its      2.125 Fl/B        881 GB/s      1872 GF
-0 640 blocks    24 its      3.125 Fl/B        877 GB/s      2740 GF
+1 640 blocks     0 its      0.125 Fl/B        869 GB/s       109 GF/s   1380 Mhz   138 W   60°C
+2 640 blocks     0 its      0.125 Fl/B        869 GB/s       109 GF/s   1380 Mhz   137 W   59°C
+3 640 blocks     0 its      0.125 Fl/B        869 GB/s       109 GF/s   1380 Mhz   124 W   56°C
+0 640 blocks     0 its      0.125 Fl/B        869 GB/s       109 GF/s   1380 Mhz   124 W   54°C
+
+1 640 blocks     8 its      1.125 Fl/B        861 GB/s       968 GF/s   1380 Mhz   159 W   63°C
+0 640 blocks     8 its      1.125 Fl/B        861 GB/s       968 GF/s   1380 Mhz   142 W   56°C
+2 640 blocks     8 its      1.125 Fl/B        861 GB/s       968 GF/s   1380 Mhz   157 W   62°C
+3 640 blocks     8 its      1.125 Fl/B        861 GB/s       968 GF/s   1380 Mhz   144 W   59°C
+
 [...]
-0 640 blocks    88 its      11.125 Fl/B        608 GB/s      6769 GF
-0 640 blocks    96 its      12.125 Fl/B        561 GB/s      6799 GF
-0 640 blocks   104 its      13.125 Fl/B        520 GB/s      6823 GF
-0 640 blocks   112 its      14.125 Fl/B        474 GB/s      6699 GF
+
+3 640 blocks    56 its      7.125 Fl/B        841 GB/s      5990 GF/s   1380 Mhz   227 W   66°C
+1 640 blocks    56 its      7.125 Fl/B        841 GB/s      5990 GF/s   1372 Mhz   249 W   71°C
+2 640 blocks    56 its      7.125 Fl/B        841 GB/s      5990 GF/s   1380 Mhz   235 W   69°C
+0 640 blocks    56 its      7.125 Fl/B        841 GB/s      5990 GF/s   1380 Mhz   220 W   62°C
+
+0 640 blocks    64 its      8.125 Fl/B        811 GB/s      6587 GF/s   1380 Mhz   223 W   63°C
+3 640 blocks    64 its      8.125 Fl/B        813 GB/s      6604 GF/s   1380 Mhz   230 W   66°C
+1 640 blocks    64 its      8.125 Fl/B        812 GB/s      6595 GF/s   1380 Mhz   241 W   71°C
+2 640 blocks    64 its      8.125 Fl/B        813 GB/s      6603 GF/s   1380 Mhz   243 W   69°C
 ```
 
 
@@ -21,6 +33,30 @@ The Code runs simultaneously on all available devices. Example output on a Tesla
 
 Measures the host-to-device transfer rate of the cudaMemcpy function over a range of transfer sizes
 
+Example output for a Tesla V100 PCIe 16GB
+``` console
+         1kB     0.03ms    0.03GB/s   0.68%
+         2kB     0.03ms    0.06GB/s   5.69%
+         4kB     0.03ms    0.12GB/s   8.97%
+         8kB     0.03ms    0.24GB/s   6.25%
+        16kB     0.04ms    0.44GB/s   5.16%
+        32kB     0.04ms    0.93GB/s   2.70%
+        64kB     0.04ms    1.77GB/s   5.16%
+       128kB     0.04ms    3.46GB/s   7.55%
+       256kB     0.05ms    5.27GB/s   1.92%
+       512kB     0.07ms    7.53GB/s   1.03%
+      1024kB     0.11ms    9.25GB/s   2.52%
+      2048kB     0.20ms   10.50GB/s   1.07%
+      4096kB     0.37ms   11.41GB/s   0.58%
+      8192kB     0.71ms   11.86GB/s   0.44%
+     16384kB     1.38ms   12.11GB/s   0.14%
+     32768kB     2.74ms   12.23GB/s   0.03%
+     65536kB     5.46ms   12.29GB/s   0.08%
+    131072kB    10.89ms   12.32GB/s   0.02%
+    262144kB    21.75ms   12.34GB/s   0.00%
+    524288kB    43.47ms   12.35GB/s   0.00%
+   1048576kB    86.91ms   12.35GB/s   0.00%
+```
 
 # um-stream
 
@@ -109,32 +145,83 @@ Pointer chasing benchmark for latency measurement. A single warp fully traverses
 
 Example results for a Tesla-V100-PCIe-16GB
 ``` console
-   MHz        kB          ms    cycles
- 1372          0         7.7    81.1
- 1372          0         7.7    80.7
- 1380          1         7.7    81.1
- 1380          2         7.7    81.2
- 1380          4         7.7    81.2
- 1380          8         7.7    80.9
- 1380         16         7.7    81.0
- 1380         32         7.7    81.4
- 1380         64         7.8    82.1
- 1380        128        12.2   128.9
- 1380        256        25.2   265.2
- 1380        512        25.2   265.2
- 1380       1024        25.2   265.2
- 1380       2048        25.2   265.2
- 1380       4096        25.2   265.2
- 1380       8192        44.4   467.9
- 1380      16384        88.9   468.1
- 1380      32768       177.8   467.9
- 1380      65536       358.9   472.4
- 1380     131072       721.4   474.7
- 1380     262144      1446.1   475.8
- 1380     524288      2895.4   476.3
- 1380    1048576      5794.2   476.6
- 1380    2097152     11592.1   476.8
- 1380    4194304     23191.0   476.9
+  MHz       kB       ms   cycles
+ 1380        0      2.9    30.0
+ 1380        0      2.8    30.0
+ 1380        1      2.8    30.0
+ 1380        2      2.8    30.0
+ 1380        4      2.9    30.0
+ 1380        8      2.9    30.1
+ 1380       16      2.9    30.3
+ 1380       32      2.9    30.7
+ 1380       64      3.0    31.4
+ 1380      128      7.4    78.3
+ 1380      256     20.4   214.4
+ 1380      512     20.4   214.4
+ 1380     1024     20.4   214.4
+ 1380     2048     20.4   214.4
+ 1380     4096     20.4   214.4
+ 1380     8192     40.6   428.0
+ 1380    16384     81.3   427.9
+ 1380    32768    162.6   428.0
+ 1380    65536    328.5   432.3
+ 1380   131072    660.2   434.4
+ 1380   262144   1323.5   435.5
+ 1380   524288   2650.5   436.0
 ```
 
+
 Both the L1 cache (128kB) and the L2 cache(6MB) are clearly visible
+
+# cuda-incore
+
+Measures the latency and throughput of FMA, DIV and SQRT operation. It scans combinations of ILP=1..8, by generating 1..8 independent dependency chains, and TLP, by varying the warp count on a SM from 1 to 32. The final output is a ILP/TLP table, with the reciprocal throughputs (cycles per operation):
+
+Example output on a Tesla V100 PCIe 16GB:
+
+``` console
+DFMA
+  8.67   4.63   4.57   4.66   4.63   4.72   4.79   4.97
+  4.29   2.32   2.29   2.33   2.32   2.36   2.39   2.48
+  2.14   1.16   1.14   1.17   1.16   1.18   1.20   1.24
+  1.08   1.05   1.05   1.08   1.08   1.10   1.12   1.14
+  1.03   1.04   1.04   1.08   1.07   1.10   1.11   1.14
+  1.03   1.04   1.04   1.08   1.07   1.10   1.10   1.14
+
+DDIV
+111.55 111.53 111.53 111.53 111.53 668.46 779.75 891.05
+ 55.76  55.77  55.76  55.76  55.76 334.26 389.86 445.51
+ 27.88  27.88  27.88  27.88  27.88 167.12 194.96 222.82
+ 14.11  14.11  14.11  14.11  14.11  84.77  98.89 113.00
+  8.48   8.48   8.48   8.48   8.48  50.89  59.36  67.84
+  7.51   7.51   7.51   7.51   7.51  44.98  52.48  59.97
+
+DSQRT
+101.26 101.26 101.26 101.26 101.26 612.76 714.79 816.83
+ 50.63  50.62  50.63  50.63  50.62 306.36 357.38 408.40
+ 25.31  25.31  25.31  25.31  25.31 153.18 178.68 204.19
+ 13.56  13.56  13.56  13.56  13.56  82.75  96.83 110.29
+  9.80   9.80   9.80   9.80   9.80  60.47  70.54  80.62
+  9.61   9.61   9.61   9.61   9.61  58.91  68.72  78.53
+```
+
+Some Features can be extracted from the plot.
+
+Latencies:
+ - DFMA: 8 cycles
+ - DDIV: 112 cycles
+ - DSQRT: 101 cycles
+ 
+Throughput of one warp (runs on one SM quadrant), no dependencies:
+ - DFMA: 1/4 per cycle (ILP 2, to ops overlap)
+ - DDIV: 1/112 per cycle (no ILP/overlap)
+ - DSQRT: 1/101 per cycle (no ILP/overlap)
+  
+Throughput of multiple warps (all SM quadrants), dependencies irrelevant:
+ - DFMA: 1 per cycle 
+ - DDIV: 1/7.5 cycles
+ - DSQRT: 1/9.6 cycles
+ 
+
+
+
