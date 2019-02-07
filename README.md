@@ -172,3 +172,56 @@ Example results for a Tesla-V100-PCIe-16GB
 
 
 Both the L1 cache (128kB) and the L2 cache(6MB) are clearly visible
+
+# cuda-incore
+
+Measures the latency and throughput of FMA, DIV and SQRT operation. It scans combinations of ILP=1..8, by generating 1..8 independent dependency chains, and TLP, by varying the warp count on a SM from 1 to 32. The final output is a ILP/TLP table, with the reciprocal throughputs (cycles per operation):
+
+Example output on a Tesla V100 PCIe 16GB:
+
+``` console
+DFMA
+  8.67   4.63   4.57   4.66   4.63   4.72   4.79   4.97
+  4.29   2.32   2.29   2.33   2.32   2.36   2.39   2.48
+  2.14   1.16   1.14   1.17   1.16   1.18   1.20   1.24
+  1.08   1.05   1.05   1.08   1.08   1.10   1.12   1.14
+  1.03   1.04   1.04   1.08   1.07   1.10   1.11   1.14
+  1.03   1.04   1.04   1.08   1.07   1.10   1.10   1.14
+
+DDIV
+111.55 111.53 111.53 111.53 111.53 668.46 779.75 891.05
+ 55.76  55.77  55.76  55.76  55.76 334.26 389.86 445.51
+ 27.88  27.88  27.88  27.88  27.88 167.12 194.96 222.82
+ 14.11  14.11  14.11  14.11  14.11  84.77  98.89 113.00
+  8.48   8.48   8.48   8.48   8.48  50.89  59.36  67.84
+  7.51   7.51   7.51   7.51   7.51  44.98  52.48  59.97
+
+DSQRT
+101.26 101.26 101.26 101.26 101.26 612.76 714.79 816.83
+ 50.63  50.62  50.63  50.63  50.62 306.36 357.38 408.40
+ 25.31  25.31  25.31  25.31  25.31 153.18 178.68 204.19
+ 13.56  13.56  13.56  13.56  13.56  82.75  96.83 110.29
+  9.80   9.80   9.80   9.80   9.80  60.47  70.54  80.62
+  9.61   9.61   9.61   9.61   9.61  58.91  68.72  78.53
+```
+
+Some Features can be extracted from the plot.
+
+Latencies:
+ - DFMA: 8 cycles
+ - DDIV: 112 cycles
+ - DSQRT: 101 cycles
+ 
+Throughput of one warp (runs on one SM quadrant), no dependencies:
+ - DFMA: 1/4 per cycle (ILP 2, to ops overlap)
+ - DDIV: 1/112 per cycle (no ILP/overlap)
+ - DSQRT: 1/101 per cycle (no ILP/overlap)
+  
+Throughput of multiple warps (all SM quadrants), dependencies irrelevant:
+ - DFMA: 1 per cycle 
+ - DDIV: 1/7.5 cycles
+ - DSQRT: 1/9.6 cycles
+ 
+
+
+
