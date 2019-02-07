@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <nvml.h>
 
 using namespace std;
 
@@ -95,6 +96,10 @@ __global__ void SQRT_separated(T p, T *A, int iters) {
 
 template <typename T, int N, int M>
 double measure(int warpCount, void (*kernel)(T, T *, int)) {
+  nvmlDevice_t device;
+  nvmlDeviceGetHandleByIndex(0, &device);
+  unsigned int clock = 0;
+
   const int iters = 10000;
   const int blockSize = 32 * warpCount;
   const int blockCount = 1;
@@ -107,7 +112,7 @@ double measure(int warpCount, void (*kernel)(T, T *, int)) {
   GPU_ERROR(cudaDeviceSynchronize());
 
   kernel<<<blockCount, blockSize>>>((T)0.32, dA, iters);
-
+  nvmlDeviceGetClockInfo(device, NVML_CLOCK_SM, &clock);
   GPU_ERROR(cudaDeviceSynchronize());
   for (int i = 0; i < 1; i++) {
     double t1 = dtime();
@@ -118,7 +123,7 @@ double measure(int warpCount, void (*kernel)(T, T *, int)) {
   }
   cudaFree(dA);
 
-  double rcpThru = time.value() * 1380 * 1e6 / N / iters / warpCount;
+  double rcpThru = time.value() * clock * 1e6 / N / iters / warpCount;
   cout << setprecision(1) << fixed << typeid(T).name() << " " << setw(5) << N
        << " " << warpCount << " " << setw(5) << M << " "
        << " " << setw(5) << time.value() * 100 << " " << setw(5)
@@ -170,4 +175,8 @@ template <typename T> void measureTabular(int maxWarpCount) {
   }
 }
 
-int main(int argc, char **argv) { measureTabular<double>(32); }
+int main(int argc, char **argv) {
+  nvmlInit();
+
+  measureTabular<double>(32);
+}
