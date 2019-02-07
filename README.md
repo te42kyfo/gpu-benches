@@ -63,24 +63,21 @@ Measures bandwidths of different cache levels. Launches one thread block per SM.
 
 Measures the bandwidth of several streaming kernels for varying occupancy.
 
- - init: A[i] = c
 
- - sum1/sum2/4/8/16: sum += A[i], varying levels of unrolling, no global reduction
-
- - dot: sum += A[i]*B[i]
-
- - tdot: sum += A[i]*B[i]*C[i]
-
- - scale: A[i] = B[i]*c
-
- - triad: A[i] = B[i] + c*C[i]
-
- - sch_triad: A[i] = B[i] + C[i]*D[i]
+Kernel | Formula |  | |
+-------|----------|--|--|
+init  | A[i] = c |  | 1 store stream
+sumN | sum += A[i] | N times unrolling, no global reduction | N load streams
+dot | sum += A[i] * B[i] | no global reduction | 2 load streams
+tdot | sum += A[i] * B[i] * C[i] | no global reduction | 3 load streams
+scale | A[i] = B[i] * c |  | 1 load stream, 1 store stream
+triad | A[i] = B[i] + c * C[i] | | 2 load streams, 1 store stream
+sch_triad | A[i] = B[i] + C[i] * D[i] | | 3 load streams, 1 store stream
 
 
 Example Results for a Tesla V100-PCIe-16GB:
 ``` console
-   blocks     threads     %occ  |               init       sum1       sum2       sum4       sum8      sum16        dot       tdot      scale      triad  sch_triad
+    blocks     threads     %occ  |               init       sum1       sum2       sum4       sum8      sum16        dot       tdot      scale      triad  sch_triad
         1          128     0.08  |  GB/s:        37.4        3.0        5.8       10.1       15.0       16.3        5.6        8.3        5.7        8.1       10.2
         2          256      0.2  |  GB/s:        74.7        6.0       11.3       19.8       29.6       32.4       11.1       15.9       11.5       15.9       20.0
         4          512      0.3  |  GB/s:       149.4       11.9       23.2       39.5       60.2       64.9       22.0       31.4       22.4       31.3       39.4
@@ -105,3 +102,39 @@ Example Results for a Tesla V100-PCIe-16GB:
      1200       153600     93.8  |  GB/s:       825.2      877.8      889.3      890.7      883.8      884.0      890.8      893.3      788.9      829.4      844.2
      1280       163840    100.0  |  GB/s:       834.1      878.9      888.4      891.0      884.5      877.1      891.0      894.5      787.8      829.1      844.0
 ```
+
+# cuda-latency
+
+Pointer chasing benchmark for latency measurement. A single warp fully traverses a buffer in random order. A partitioning scheme is used to ensure that all cache lines are hit exactly once before they are accessed again. Latency in clock cycles is computed with the current clock rate.
+
+Example results for a Tesla-V100-PCIe-16GB
+``` console
+   MHz        kB          ms    cycles
+ 1372          0         7.7    81.1
+ 1372          0         7.7    80.7
+ 1380          1         7.7    81.1
+ 1380          2         7.7    81.2
+ 1380          4         7.7    81.2
+ 1380          8         7.7    80.9
+ 1380         16         7.7    81.0
+ 1380         32         7.7    81.4
+ 1380         64         7.8    82.1
+ 1380        128        12.2   128.9
+ 1380        256        25.2   265.2
+ 1380        512        25.2   265.2
+ 1380       1024        25.2   265.2
+ 1380       2048        25.2   265.2
+ 1380       4096        25.2   265.2
+ 1380       8192        44.4   467.9
+ 1380      16384        88.9   468.1
+ 1380      32768       177.8   467.9
+ 1380      65536       358.9   472.4
+ 1380     131072       721.4   474.7
+ 1380     262144      1446.1   475.8
+ 1380     524288      2895.4   476.3
+ 1380    1048576      5794.2   476.6
+ 1380    2097152     11592.1   476.8
+ 1380    4194304     23191.0   476.9
+```
+
+Both the L1 cache (128kB) and the L2 cache(6MB) are clearly visible
