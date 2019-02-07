@@ -13,20 +13,22 @@
 using namespace std;
 
 template <typename T>
-__global__ void pchase(T *const __restrict__ buf, T *dummy_buf, int iters) {
+__global__ void pchase(T *const __restrict__ buf, T *dummy_buf, int64_t N) {
 
-  size_t tidx = threadIdx.x + blockIdx.x * blockDim.x;
-  T idx = 0;
+  int tidx = threadIdx.x + blockIdx.x * blockDim.x;
+  int64_t *idx = buf;
 
-  int iter = 0;
-  while (iter < iters) {
-    idx = buf[idx];
-    if (idx == 0)
-      iter++;
+  const int unroll_factor = 8;
+#pragma unroll(1)
+  for (int64_t n = 0; n < N; n += unroll_factor) {
+
+    for (int u = 0; u < unroll_factor; u++) {
+      idx = (int64_t *)__ldg(idx);
+    }
   }
 
   if (tidx > 12313) {
-    dummy_buf[0] = idx;
+    dummy_buf[0] = (int64_t)idx;
   }
 }
 
@@ -37,16 +39,17 @@ int main(int argc, char **argv) {
   nvmlDeviceGetHandleByIndex(0, &device);
   unsigned int clock = 0;
 
-  typedef uint64_t dtype;
+  typedef int64_t dtype;
 
   const int cl_size = 2;
   const int skip_factor = 8;
 
   for (size_t LEN = 2; LEN < (1 << 28); LEN *= 2) {
 
-    const int iters = max((int64_t)1, ((int64_t)1 << 16) / LEN);
-    vector<dtype> order(LEN);
-    dtype *buf = NULL;
+    const int64_t iters =
+        max((int64_t)1, ((int64_t)1 << 16) / LEN) * LEN * cl_size;
+    vector<int64_t> order(LEN);
+    int64_t *buf = NULL;
     dtype *dummy_buf = NULL;
 
     GPU_ERROR(
@@ -73,6 +76,10 @@ int main(int argc, char **argv) {
     }
     buf[skip_factor * (order[LEN - 2] * cl_size + cl_size - 1)] = 0;
 
+    for (int64_t n = 0; n < LEN * cl_size * skip_factor; n++) {
+      buf[n] = (int64_t)buf + buf[n] * sizeof(int64_t *);
+    }
+
     pchase<dtype><<<1, 32>>>(buf, dummy_buf, iters);
     nvmlDeviceGetClockInfo(device, NVML_CLOCK_SM, &clock);
     pchase<dtype><<<1, 32>>>(buf, dummy_buf, iters);
@@ -91,7 +98,7 @@ int main(int argc, char **argv) {
          << fixed                                          //
          << setprecision(1) << setw(5) << dt * 1000 << " " //
          << setw(7) << setprecision(1)
-         << (double)dt / iters / (LEN * cl_size) * clock * 1000 * 1000 << "\n";
+         << (double)dt / iters * clock * 1000 * 1000 << "\n";
 
     GPU_ERROR(cudaFree(buf));
     GPU_ERROR(cudaFree(dummy_buf));
