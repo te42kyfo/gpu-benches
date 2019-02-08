@@ -18,7 +18,8 @@ template <typename T> __global__ void initKernel(T *data, size_t data_len) {
 }
 
 template <typename T, int N, int M, int BLOCKSIZE>
-__global__ void testfun(T *dA, T *dB, T *dC) {
+__global__ void testfun(T *const __restrict__ dA, T *const __restrict__ dB,
+                        T *dC) {
   T *sA = dA + threadIdx.x + blockIdx.x * BLOCKSIZE * M;
   T *sB = dB + threadIdx.x + blockIdx.x * BLOCKSIZE * M;
 
@@ -28,6 +29,29 @@ __global__ void testfun(T *dA, T *dB, T *dC) {
   for (int i = 0; i < M; i++) {
     T a = sA[i * BLOCKSIZE];
     T b = sB[i * BLOCKSIZE];
+    T v = a - b;
+    for (int i = 0; i < N; i++) {
+      v = v * a - b;
+    }
+    sum += v;
+  }
+  if (threadIdx.x == 0)
+    dC[blockIdx.x] = sum;
+}
+
+
+template <typename T, int N, int M, int BLOCKSIZE>
+__global__ void testfun_max_power(T *const __restrict__ dA, T *const __restrict__ dB,
+                        T *dC) {
+  T *sA = dA + threadIdx.x % 64 + (blockIdx.x / 2) * BLOCKSIZE * M / 4;
+  T *sB = dB + threadIdx.x % 64 + (blockIdx.x / 2) * BLOCKSIZE * M / 4;
+
+  T sum = 0;
+
+#pragma unroll 1
+  for (int i = 0; i < M; i++) {
+    T a = sA[i * BLOCKSIZE / 4];
+    T b = sB[i * BLOCKSIZE / 4];
     T v = a - b;
     for (int i = 0; i < N; i++) {
       v = v * a - b;
@@ -60,7 +84,7 @@ int main(int argc, char **argv) {
     cudaGetDeviceProperties(&prop, deviceId);
     int numBlocks;
 
-    nvmlDevice_t device;
+     nvmlDevice_t device;
     nvmlDeviceGetHandleByIndex(deviceId, &device);
     unsigned int power = 0;
     unsigned int clock = 0;
@@ -90,7 +114,7 @@ int main(int argc, char **argv) {
 
     double start = dtime();
     for (size_t iter = 0; iter < iters; iter++) {
-      testfun<dtype, N, M, BLOCKSIZE><<<blockCount, BLOCKSIZE>>>(dA, dB, dC);
+      testfun_max_power<dtype, N, M, BLOCKSIZE><<<blockCount, BLOCKSIZE>>>(dA, dB, dC);
     }
     nvmlDeviceGetClockInfo(device, NVML_CLOCK_SM, &clock);
     nvmlDeviceGetPowerUsage(device, &power);
@@ -100,16 +124,20 @@ int main(int argc, char **argv) {
     GPU_ERROR(cudaGetLastError());
 
 #pragma omp barrier
-#pragma omp critical
-    {
-      cout << setprecision(3) << fixed << deviceId << " " << blockCount
-           << " blocks   " << setw(3) << N << " its      "
-           << (2.0 + N * 2.0) / (2.0 * sizeof(dtype)) << " Fl/B      "
-           << setprecision(0) << setw(5)
-           << iters * 2 * data_len * sizeof(dtype) / (end - start) * 1.0e-9
-           << " GB/s    " << setw(6)
-           << iters * (2 + N * 2) * data_len / (end - start) * 1.0e-9
-           << " GF/s   " << clock << " Mhz   " << power / 1000 << " W   " << temperature << "°C\n";
+#pragma omp for ordered schedule(static, 1)
+    for (int i = 0; i < omp_get_num_threads(); i++) {
+#pragma omp ordered
+      {
+        cout << setprecision(3) << fixed << deviceId << " " << blockCount
+             << " blocks   " << setw(3) << N << " its      "
+             << (2.0 + N * 2.0) / (2.0 * sizeof(dtype)) << " Fl/B      "
+             << setprecision(0) << setw(5)
+             << iters * 2 * data_len * sizeof(dtype) / (end - start) * 1.0e-9
+             << " GB/s    " << setw(6)
+             << iters * (2 + N * 2) * data_len / (end - start) * 1.0e-9
+             << " GF/s   " << clock << " Mhz   " << power / 1000 << " W   "
+             << temperature << "°C\n";
+      }
     }
     GPU_ERROR(cudaFree(dA));
     GPU_ERROR(cudaFree(dB));
