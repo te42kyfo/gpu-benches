@@ -13,7 +13,7 @@
 using namespace std;
 
 template <typename T>
-__global__ void pchase(T *const __restrict__ buf, T *dummy_buf, int64_t N) {
+__global__ void pchase(T *  buf, T * __restrict__ dummy_buf, int64_t N) {
 
   int tidx = threadIdx.x + blockIdx.x * blockDim.x;
   int64_t *idx = buf;
@@ -23,7 +23,7 @@ __global__ void pchase(T *const __restrict__ buf, T *dummy_buf, int64_t N) {
   for (int64_t n = 0; n < N; n += unroll_factor) {
 
     for (int u = 0; u < unroll_factor; u++) {
-      idx = (int64_t *)__ldg(idx);
+      idx = (int64_t *) *idx;
     }
   }
 
@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
          << setw(8) << skip_factor * LEN * cl_size * sizeof(dtype) / 1024
          << " "                                            //
          << fixed                                          //
-         << setprecision(1) << setw(5) << dt * 1000 << " " //
+         << setprecision(1) << setw(8) << dt * 1000 << " " //
          << setw(7) << setprecision(1)
          << (double)dt / iters * clock * 1000 * 1000 << "\n";
 
