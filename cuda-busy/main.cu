@@ -12,9 +12,15 @@ double *dA, *dB;
 using kernel_ptr_type = void (*)(int iters, double *A, const double *B);
 
 template <int N, int UNROLL, bool DOTPRODUCT>
-__global__ __launch_bounds__(32, 1) void kernel(int iters, double *A,
-                                                double *B) {
+__global__ __launch_bounds__(1024, 1) void kernel(int iters, double *A,
+                                                  double *B) {
+
+  int widx = threadIdx.x / 32;
   double sum = 0.0;
+#pragma unroll(1)
+  for (int w = 0; w < (widx % 5) * 11; w++) {
+    sum += w;
+  }
 
   double *dA = A + threadIdx.x;
   double *dB = B + threadIdx.x;
@@ -35,11 +41,68 @@ __global__ __launch_bounds__(32, 1) void kernel(int iters, double *A,
   }
 }
 
-template <int DV, int UNROLL, bool DOTPRODUCT> void measure() {
+double pred(int Iint, int Ild, int Idp, int Nsm, int ClL1) {
+  int Nq = ceil((double)Nsm / 4);
+
+  int Tdp = Idp * 4;
+  int Tld = Ild * 4;
+  int Tint = Iint * 2;
+  int TL1lat = 32;
+  int TL1thru = ClL1 * Nsm;
+
+  int Ttotal = Tint + max(max(Tld, TL1lat) + Tdp, TL1thru);
+
+  cout << setw(5) << Tdp << " ";
+  cout << setw(5) << Tld << " ";
+  cout << setw(5) << Tint << " ";
+
+
+  TL1lat = 32 + (double)TL1thru / Ttotal * 16;
+  TL1thru = ClL1 * Nsm * (1.0f + (double)TL1thru / Ttotal) * 0.5f;
+  Ttotal = Tint + max(max(Tld, TL1lat) + Tdp, TL1thru);
+
+
+  
+  TL1lat = 32 + (double)TL1thru / Ttotal * 16;
+  TL1thru = ClL1 * Nsm * (1.0f + (double)TL1thru / Ttotal) * 0.5f;
+  Ttotal = Tint + max(max(Tld, TL1lat) + Tdp, TL1thru);
+
+  string cont = "Tint + ";
+  if (TL1thru >= max(Tld, TL1lat) + Tdp) {
+    cont += " TL1thru ";
+  } else if (TL1thru == max(Tld, TL1lat) + Tdp) {
+    cont += " | ";
+  } else {
+    cont += "( ";
+    if (Tld > TL1lat) {
+      cont += "Tld";
+    } else if (Tld == TL1lat) {
+      cont += "TL1lat|Tld";
+    } else {
+      cont += "TL1lat";
+    }
+    cont += " + Tdp)";
+  }
+
+  cout << cont << "  ";
+
+  return Ttotal;
+}
+
+template <int DV, int UNROLL, bool DOTPRODUCT>
+void measure(int blockSize, bool concise = false) {
+
+  if (DV % (32 * UNROLL) != 0)
+    cout << DV << " % " << 32 * UNROLL << " != 0\n";
+
+  if (DV * 8 * 2 > 128 * 1024)
+    cout << DV * 8 * 2 << " > " << 128 * 1024 << "\n";
+
+  if (DV * 8 * 2 < 64 * 1024)
+    cout << DV * 8 * 2 << " < " << 64 * 1024 << "\n";
 
   int blockCount = 1;
-  const int blockSize = 32;
-  const int N = DV / blockSize;
+  const int N = DV / 32;
   int iters = 100000 / N;
 
   GPU_ERROR(cudaFuncSetCacheConfig(kernel<N, UNROLL, DOTPRODUCT>,
@@ -64,14 +127,31 @@ template <int DV, int UNROLL, bool DOTPRODUCT> void measure() {
   double bw = (DOTPRODUCT ? 2 : 1) * DV * iters * sizeof(double) / dt / 1e9;
   double cyc = dt / (DV * iters) * 1.38e9 * 32;
 
-  cout << fixed << setprecision(1);
+  if (concise) {
+    cout << fixed << setprecision(2) << setw(7) << cyc << " ";
+  } else {
 
-  cout << setw(3) << UNROLL << "  "     //
-       << setw(8) << dt * 1000 << "   " //
-       << setw(8) << spread << "   "    //
-       << setw(8) << bw << "   "        //
-       << setw(8) << cyc << " -- " << setw(8)
-       << (20.0 + max((UNROLL-1) * (DOTPRODUCT ? 8 : 4), 30) + UNROLL * 8) / UNROLL << " \n";
+    cout << fixed << setprecision(2);
+    cout << setw(3) << UNROLL << "  "     //
+         << setw(8) << dt * 1000 << "   " //
+         << setw(8) << spread << "   "    //
+         << setw(8) << bw << "   "        //
+         << setw(8) << cyc << " -- ";
+    // << setw(8)
+    //<< (20.0 + max(UNROLL * (DOTPRODUCT ? 8 : 4), 30) + UNROLL * 8) /
+    //        UNROLL
+
+    int Iint = 10;
+    int Ild = UNROLL * (DOTPRODUCT ? 2 : 1);
+    int Idp = UNROLL;
+    int ClL1 = Ild * 2;
+    int Nsm = max(1, blockSize / 32);
+    int Nq = max(1, blockSize / 32 / 4);
+
+    cout << setw(5) << pred(Iint, Ild, Idp, ClL1, Nsm) / UNROLL << " ";
+
+    cout << "\n";
+  }
 }
 
 int main(int argc, char **argv) {
@@ -84,34 +164,24 @@ int main(int argc, char **argv) {
     dB[i] = 1.21;
   }
 
-  measure<9 * 512, 1, true>();
-  measure<9 * 512, 2, true>();
-  measure<9 * 512, 3, true>();
-  measure<9 * 512, 4, true>();
-  measure<9 * 512, 6, true>();
-  measure<9 * 512, 8, true>();
-  measure<9 * 512, 9, true>();
-  measure<9 * 512, 12, true>();
-  measure<9 * 512, 16, true>();
-  measure<9 * 512, 18, true>();
-  measure<9 * 512, 24, true>();
-  measure<9 * 512, 27, true>();
-  measure<9 * 512, 32, true>();
-  cout << "\n";
-  measure<9 * 512, 1, false>();
-  measure<9 * 512, 2, false>();
-  measure<9 * 512, 3, false>();
-  measure<9 * 512, 4, false>();
-  measure<9 * 512, 6, false>();
-  measure<9 * 512, 8, false>();
-  measure<9 * 512, 9, false>();
-  measure<9 * 512, 12, false>();
-  measure<9 * 512, 16, false>();
-  measure<9 * 512, 18, false>();
-  measure<9 * 512, 24, false>();
-  measure<9 * 512, 27, false>();
-  measure<9 * 512, 32, false>();
-
+  bool concise = false;
+  const bool dotProduct = false;
+  for (int blockSize = 32; blockSize <= 1024; blockSize *= 2) {
+    measure<8 * 512, 1, dotProduct>(blockSize, concise);
+    measure<8 * 512, 2, dotProduct>(blockSize, concise);
+    measure<3 * 2048, 3, dotProduct>(blockSize, concise);
+    measure<8 * 512, 4, dotProduct>(blockSize, concise);
+    measure<6 * 1024, 6, dotProduct>(blockSize, concise);
+    measure<8 * 512, 8, dotProduct>(blockSize, concise);
+    measure<9 * 512, 9, dotProduct>(blockSize, concise);
+    measure<3 * 2048, 12, dotProduct>(blockSize, concise);
+    measure<8 * 512, 16, dotProduct>(blockSize, concise);
+    measure<9 * 512, 18, dotProduct>(blockSize, concise);
+    measure<6 * 1024, 24, dotProduct>(blockSize, concise);
+    measure<27 * 256, 27, dotProduct>(blockSize, concise);
+    measure<8 * 512, 32, dotProduct>(blockSize, concise);
+    cout << "\n";
+  }
   GPU_ERROR(cudaFree(dA));
   GPU_ERROR(cudaFree(dB));
   return 0;
