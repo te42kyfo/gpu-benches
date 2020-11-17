@@ -43,20 +43,24 @@ __global__ void testfun(T *const __restrict__ dA, T *const __restrict__ dB,
 template <typename T, int N, int M, int BLOCKSIZE>
 __global__ void testfun_max_power(T *const __restrict__ dA, T *const __restrict__ dB,
                         T *dC) {
-  T *sA = dA + threadIdx.x % 64 + (blockIdx.x / 2) * BLOCKSIZE * M / 4;
-  T *sB = dB + threadIdx.x % 64 + (blockIdx.x / 2) * BLOCKSIZE * M / 4;
+  T *sA = dA + threadIdx.x + (blockIdx.x) * BLOCKSIZE * (M/4);
+  T *sB = dB + threadIdx.x + (blockIdx.x) * BLOCKSIZE * (M/4);
 
   T sum = 0;
 
 #pragma unroll 1
-  for (int i = 0; i < M; i++) {
-    T a = sA[i * BLOCKSIZE / 4];
-    T b = sB[i * BLOCKSIZE / 4];
+  for (int i = 0; i < M; i += 2) {
+    T a = sA[(i / 4) * BLOCKSIZE];
+    T b = sB[(i / 4) * BLOCKSIZE];
     T v = a - b;
+    T a2 = sA[((i+1) / 4) * BLOCKSIZE];
+    T b2 = sB[((i+1) / 4) * BLOCKSIZE];
+    T v2 = a2 - b2;
     for (int i = 0; i < N; i++) {
       v = v * a - b;
+      v2 = v2 * a2 - b2;
     }
-    sum += v;
+    sum += v + v2;
   }
   if (threadIdx.x == 0)
     dC[blockIdx.x] = sum;
@@ -65,8 +69,8 @@ __global__ void testfun_max_power(T *const __restrict__ dA, T *const __restrict_
 int main(int argc, char **argv) {
   nvmlInit();
 
-  typedef double dtype;
-  const int M = 1000;
+  typedef float dtype;
+  const int M = 4000;
   // PARN is a constant from the Makefile, set via -DPARN=X
   const int N = PARN;
   const int BLOCKSIZE = 256;
@@ -98,7 +102,7 @@ int main(int argc, char **argv) {
     dtype *dA = NULL;
     dtype *dB = NULL;
     dtype *dC = NULL;
-    size_t iters = 10000;
+    size_t iters = 4000;
 
     GPU_ERROR(cudaMalloc(&dA, data_len * sizeof(dtype)));
     GPU_ERROR(cudaMalloc(&dB, data_len * sizeof(dtype)));
@@ -114,7 +118,7 @@ int main(int argc, char **argv) {
 
     double start = dtime();
     for (size_t iter = 0; iter < iters; iter++) {
-      testfun_max_power<dtype, N, M, BLOCKSIZE><<<blockCount, BLOCKSIZE>>>(dA, dB, dC);
+      testfun<dtype, N, M, BLOCKSIZE><<<blockCount, BLOCKSIZE>>>(dA, dB, dC);
     }
     nvmlDeviceGetClockInfo(device, NVML_CLOCK_SM, &clock);
     nvmlDeviceGetPowerUsage(device, &power);
