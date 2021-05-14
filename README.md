@@ -212,7 +212,7 @@ Results from a NVIDIA A100-SXM4-40GB / CUDA 1.3
       864       221184    100.0  |  GB/s:        1436       1372       1441       1484       1482       1445       1437       1466       1328       1363       1384
 
 ```
-
+![stream plot A100](cuda-stream/a100.txt.svg)
 
 # cuda-latency
 
