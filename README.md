@@ -144,7 +144,7 @@ NVIDIA A100-SXM4-40GB
 ```
 
 
-![cache plot](cuda-cache/cache_plot.png)
+![cache plot](cuda-cache/cache_plot.svg)
 
 
 # cuda-stream
