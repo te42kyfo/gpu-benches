@@ -4,7 +4,7 @@ import os
 import csv
 import matplotlib.pyplot as plt
 
-fig,ax = plt.subplots(figsize=(7,4))
+fig,ax = plt.subplots(figsize=(9,4))
 for filename in os.listdir("."):
     if not filename.endswith(".txt"):
         continue
@@ -27,4 +27,4 @@ ax.set_ylabel("GB/s")
 ax.set_xscale('log')
 ax.legend()
 ax.set_ylim([0, ax.get_ylim()[1]])
-fig.savefig("cache_plot.png")
+fig.savefig("cache_plot.svg")
