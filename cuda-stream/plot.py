@@ -43,7 +43,7 @@ for filename in os.listdir("."):
         ax.set_ylabel("GB/s")
 
 
-
+        fig.tight_layout()
         ax.legend()
         ax.set_ylim([0, ax.get_ylim()[1]])
         fig.savefig(filename + ".svg")
