@@ -18,7 +18,6 @@ __global__ void initKernel(double *A, size_t N) {
 
 template <int N, int iters, int BLOCKSIZE>
 __global__ void daxpyKernel(double *A, double *B, double *C) {
-
   double localSum = 0;
 #pragma unroll(1)
   for (int iter = 0; iter < iters; iter++) {
@@ -40,9 +39,9 @@ template <int N, int iters, int blockSize> double callKernel(int blockCount) {
 }
 
 template <int N> void measure() {
-  const int iters = 10000;
+  const int iters = 100000000 / N + 1;
 
-  const int blockSize = 512;
+  const int blockSize = 256;
 
   cudaDeviceProp prop;
   int deviceId;
@@ -87,7 +86,7 @@ template <int N> void measure() {
 
   GPU_ERROR(cudaDeviceSynchronize());
   std::function<double()> measureKernelFunction =
-      std::bind(callKernel<N, iters, blockSize>, blockCount);
+      std::bind(callKernel<N, iters , blockSize>, blockCount);
 
   double dramReadBW =
       measureMetric(measureKernelFunction, "dram_read_throughput") / 1e9;
@@ -121,6 +120,14 @@ template <int N> void measure() {
        << setw(10) << texReadBW << " GB/s\n";
 }
 
+size_t constexpr expSeries(size_t N) {
+    size_t val = 32*512;
+    for( size_t i  = 0; i < N; i++) {
+        val *= 1.15;
+    }
+    return (val / 512) * 512;
+}
+
 int main(int argc, char **argv) {
   measureMetricInit();
 
@@ -134,13 +141,55 @@ int main(int argc, char **argv) {
        << setw(15) << "L2 Write"   //
        << setw(15) << "Tex Read\n";
 
-  measure<256>();
-  measure<512>();
-  measure<1024>();
-  measure<2 * 1024>();
-  measure<4 * 1024>();
-  measure<8 * 1024>();
-  measure<16 * 1024>();
-  measure<32 * 1024>();
-  measure<64 * 1024>();
+  measure<1*512>();
+  measure<2*512>();
+  measure<3*512>();
+  measure<4*512>();
+  measure<5*512>();
+  measure<6*512>();
+  measure<7*512>();
+  measure<8*512>();
+  measure<9*512>();
+  measure<10*512>();
+  measure<11*512>();
+  measure<12*512>();
+  measure<13*512>();
+  measure<14*512>();
+  measure<15*512>();
+  measure<16*512>();
+  measure<17*512>();
+  measure<18*512>();
+  measure<19*512>();
+  measure<20*512>();
+  measure<21*512>();
+  measure<22*512>();
+  measure<23*512>();
+  measure<24*512>();
+  measure<25*512>();
+  measure<26*512>();
+  measure<27*512>();
+  measure<28*512>();
+  measure<29*512>();
+  measure<30*512>();
+  measure<31*512>();
+  measure<32*512>();
+
+  measure<expSeries(1)>();
+  measure<expSeries(2)>();
+  measure<expSeries(3)>();
+  measure<expSeries(4)>();
+  measure<expSeries(5)>();
+  measure<expSeries(6)>();
+  measure<expSeries(7)>();
+  measure<expSeries(8)>();
+  measure<expSeries(9)>();
+  measure<expSeries(10)>();
+  measure<expSeries(11)>();
+  measure<expSeries(12)>();
+  measure<expSeries(13)>();
+  measure<expSeries(14)>();
+  measure<expSeries(16)>();
+  measure<expSeries(17)>();
+  measure<expSeries(18)>();
+  measure<expSeries(19)>();
 }
