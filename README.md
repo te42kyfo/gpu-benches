@@ -87,42 +87,28 @@ Measures bandwidths of different cache levels. Launches one thread block per SM.
 ``` console
      data set   exec time     spread        Eff. bw        meas. L2 Read      meas. Tex Read
          8 kB        11ms       1.7%   12087.2 GB/s             0.1 GB/s        12274.3 GB/s
-        16 kB        10ms       0.0%   13312.4 GB/s             0.1 GB/s        13319.3 GB/s
         24 kB         9ms       0.1%   13491.1 GB/s             0.2 GB/s        13494.8 GB/s
         32 kB         9ms       0.0%   13679.2 GB/s             0.3 GB/s        13419.6 GB/s
-        40 kB         9ms       1.4%   13607.6 GB/s             0.4 GB/s        13685.4 GB/s
         48 kB         9ms       0.2%   13744.4 GB/s             0.4 GB/s        13753.4 GB/s
         56 kB         9ms       0.1%   13794.8 GB/s             0.5 GB/s        13797.1 GB/s
-        64 kB         9ms       0.2%   13824.8 GB/s             0.6 GB/s        13837.3 GB/s
         72 kB         9ms       0.1%   13855.9 GB/s             0.6 GB/s        13854.0 GB/s
         88 kB         9ms       0.2%   13867.6 GB/s             0.8 GB/s        13870.8 GB/s
-        96 kB         9ms       0.2%   13882.6 GB/s             0.9 GB/s        13879.0 GB/s
        104 kB         9ms       0.0%   13895.6 GB/s             0.9 GB/s        13896.1 GB/s
        112 kB         9ms       0.1%   13896.8 GB/s             1.0 GB/s        13882.9 GB/s
        128 kB        10ms       4.0%   13243.0 GB/s          1040.5 GB/s        13484.1 GB/s
        136 kB        10ms      10.7%   12444.5 GB/s          1462.3 GB/s        13159.4 GB/s
-       144 kB        11ms       9.7%   11578.7 GB/s          1010.5 GB/s        11958.7 GB/s
        152 kB        12ms      10.1%   10953.1 GB/s           744.2 GB/s        11212.3 GB/s
        168 kB        15ms      33.5%    8634.4 GB/s          1181.1 GB/s         8730.1 GB/s
-       176 kB        24ms      72.2%    5344.9 GB/s          1238.2 GB/s         7922.1 GB/s
        184 kB        39ms     103.2%    3287.4 GB/s          1130.6 GB/s         6258.3 GB/s
        192 kB        55ms      34.1%    2326.8 GB/s          2060.4 GB/s         2230.4 GB/s
-       208 kB        59ms       4.3%    2153.9 GB/s          2170.8 GB/s         2339.7 GB/s
        216 kB        58ms       1.9%    2188.4 GB/s          2191.4 GB/s         2195.4 GB/s
        232 kB        60ms       9.2%    2133.6 GB/s          2101.5 GB/s         2094.3 GB/s
-       240 kB        56ms      10.7%    2281.6 GB/s          2202.3 GB/s         2195.9 GB/s
        256 kB        56ms       1.7%    2286.0 GB/s          2479.5 GB/s         2477.4 GB/s
-       288 kB        57ms       8.5%    2233.7 GB/s          2305.3 GB/s         2310.5 GB/s
        384 kB        59ms       2.8%    2178.7 GB/s          2224.9 GB/s         2224.9 GB/s
-       440 kB        53ms       5.0%    2414.0 GB/s          2368.5 GB/s         2356.1 GB/s
        592 kB        53ms       4.9%    2427.8 GB/s          2377.0 GB/s         2383.8 GB/s
        680 kB        54ms       7.0%    2388.2 GB/s          2480.7 GB/s         2483.8 GB/s
-       896 kB        58ms       1.6%    2200.6 GB/s          2188.5 GB/s         2186.8 GB/s
       1032 kB        58ms       1.7%    2196.4 GB/s          2218.4 GB/s         2217.6 GB/s
       1368 kB        58ms       0.5%    2201.8 GB/s          2200.2 GB/s         2200.5 GB/s
-      1568 kB        58ms       0.9%    2202.8 GB/s          2217.1 GB/s         2216.8 GB/s
-      2392 kB        57ms       0.2%    2253.4 GB/s          2252.8 GB/s         2254.6 GB/s
-      2752 kB        57ms       0.1%    2252.7 GB/s          2252.2 GB/s         2253.8 GB/s
       3640 kB        57ms       0.1%    2253.3 GB/s          2254.5 GB/s         2251.3 GB/s
 
 ```
@@ -131,45 +117,34 @@ NVIDIA A100-SXM4-40GB
 
 ``` console
      data set   exec time     spread        Eff. bw
-         8 kB        14ms       2.6%   12577.1 GB/s
-        16 kB        10ms       0.6%   17989.2 GB/s
+        8 kB        14ms       2.6%   12577.1 GB/s
         24 kB        10ms       3.7%   17667.1 GB/s
-        40 kB         9ms       0.3%   18731.3 GB/s
         48 kB         9ms       0.8%   18770.0 GB/s
         64 kB         9ms       0.1%   19090.8 GB/s
         72 kB         9ms       0.5%   19100.9 GB/s
         80 kB         9ms       0.1%   19174.4 GB/s
-        96 kB         9ms       0.2%   19216.3 GB/s
        104 kB         9ms       0.4%   19206.1 GB/s
        120 kB         9ms       0.6%   19218.7 GB/s
-       128 kB         9ms       0.1%   19283.2 GB/s
        144 kB         9ms       0.0%   19293.1 GB/s
        152 kB         9ms       0.2%   19294.0 GB/s
        168 kB         9ms       4.3%   18318.8 GB/s
-       176 kB        10ms       9.6%   17506.0 GB/s
        184 kB        10ms       9.0%   17206.7 GB/s
        192 kB        11ms       6.5%   15680.9 GB/s
-       200 kB        11ms       9.5%   15518.8 GB/s
        216 kB        18ms      67.7%    9680.0 GB/s
        224 kB        25ms      72.0%    6847.9 GB/s
-       240 kB        39ms      10.6%    4416.8 GB/s
        248 kB        40ms       4.7%    4317.2 GB/s
-       288 kB        38ms       4.0%    4607.2 GB/s
        384 kB        47ms       2.4%    3694.1 GB/s
        512 kB        45ms       1.6%    3834.3 GB/s
        592 kB        34ms       1.6%    5063.1 GB/s
        680 kB        34ms       0.8%    5036.9 GB/s
        896 kB        45ms       0.4%    3857.0 GB/s
-      1032 kB        45ms       0.3%    3869.2 GB/s
       1368 kB        45ms       0.3%    3875.7 GB/s
-      1568 kB        45ms       0.6%    3862.9 GB/s
       2392 kB        44ms       0.1%    3892.4 GB/s
-      3160 kB        44ms       0.1%    3896.8 GB/s
       3640 kB        44ms       0.1%    3890.8 GB/s
 ```
 
 
-![cache plot](cuda_stream/cache_plots.png)
+![cache plot](cuda-cache/cache_plot.png)
 
 
 # cuda-stream
