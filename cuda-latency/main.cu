@@ -1,5 +1,3 @@
-#include "../dtime.hpp"
-#include "../gpu-error.h"
 #include <algorithm>
 #include <cuComplex.h>
 #include <cuda_runtime.h>
@@ -9,6 +7,8 @@
 #include <omp.h>
 #include <random>
 #include <sys/time.h>
+#include "../gpu-error.h"
+#include "../dtime.hpp"
 
 using namespace std;
 
@@ -18,10 +18,10 @@ __global__ void pchase(T *  buf, T * __restrict__ dummy_buf, int64_t N) {
   int tidx = threadIdx.x + blockIdx.x * blockDim.x;
   int64_t *idx = buf;
 
-  const int unroll_factor = 8;
+  const int unroll_factor = 32;
 #pragma unroll(1)
   for (int64_t n = 0; n < N; n += unroll_factor) {
-
+      #pragma unroll
     for (int u = 0; u < unroll_factor; u++) {
       idx = (int64_t *) *idx;
     }
@@ -44,10 +44,11 @@ int main(int argc, char **argv) {
   const int cl_size = 2;
   const int skip_factor = 8;
 
-  for (size_t LEN = 2; LEN < (1 << 28); LEN *= 2) {
+  for (size_t LEN = 256; LEN < (1 << 28); LEN = LEN * 1.02 + 8) {
+      if(LEN*skip_factor*cl_size * sizeof(dtype) > 80*1024*1024) LEN *= 1.5;
 
     const int64_t iters =
-        max((int64_t)1, ((int64_t)1 << 16) / LEN) * LEN * cl_size;
+        max((int64_t)2, ((int64_t)1 << 19) / LEN) * LEN * cl_size;
     vector<int64_t> order(LEN);
     int64_t *buf = NULL;
     dtype *dummy_buf = NULL;
@@ -98,7 +99,7 @@ int main(int argc, char **argv) {
          << fixed                                          //
          << setprecision(1) << setw(8) << dt * 1000 << " " //
          << setw(7) << setprecision(1)
-         << (double)dt / iters * clock * 1000 * 1000 << "\n";
+         << (double)dt / iters * clock * 1000 * 1000 << "\n" << flush;
 
     GPU_ERROR(cudaFree(buf));
     GPU_ERROR(cudaFree(dummy_buf));

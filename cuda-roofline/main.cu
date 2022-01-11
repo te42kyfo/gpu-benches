@@ -7,6 +7,7 @@
 #include <nvml.h>
 #include <omp.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 using namespace std;
 
@@ -26,35 +27,12 @@ __global__ void testfun(T *const __restrict__ dA, T *const __restrict__ dB,
   T sum = 0;
 
 #pragma unroll 1
-  for (int i = 0; i < M; i++) {
+  for (int i = 0; i < M; i+=2) {
     T a = sA[i * BLOCKSIZE];
     T b = sB[i * BLOCKSIZE];
     T v = a - b;
-    for (int i = 0; i < N; i++) {
-      v = v * a - b;
-    }
-    sum += v;
-  }
-  if (threadIdx.x == 0)
-    dC[blockIdx.x] = sum;
-}
-
-
-template <typename T, int N, int M, int BLOCKSIZE>
-__global__ void testfun_max_power(T *const __restrict__ dA, T *const __restrict__ dB,
-                        T *dC) {
-  T *sA = dA + threadIdx.x + (blockIdx.x) * BLOCKSIZE * (M/4);
-  T *sB = dB + threadIdx.x + (blockIdx.x) * BLOCKSIZE * (M/4);
-
-  T sum = 0;
-
-#pragma unroll 1
-  for (int i = 0; i < M; i += 2) {
-    T a = sA[(i / 4) * BLOCKSIZE];
-    T b = sB[(i / 4) * BLOCKSIZE];
-    T v = a - b;
-    T a2 = sA[((i+1) / 4) * BLOCKSIZE];
-    T b2 = sB[((i+1) / 4) * BLOCKSIZE];
+    T a2 = sA[(i+1) * BLOCKSIZE];
+    T b2 = sB[(i+1) * BLOCKSIZE];
     T v2 = a2 - b2;
     for (int i = 0; i < N; i++) {
       v = v * a - b;
@@ -66,11 +44,37 @@ __global__ void testfun_max_power(T *const __restrict__ dA, T *const __restrict_
     dC[blockIdx.x] = sum;
 }
 
+
+template <typename T, int N, int M, int BLOCKSIZE>
+__global__ void testfun_max_power(T *const __restrict__ dA, T *const __restrict__ dB,
+                        T *dC) {
+  T *sA = dA + (threadIdx.x) + (blockIdx.x/2) * BLOCKSIZE * (M/8);
+  T *sB = dB + (threadIdx.x) + (blockIdx.x/2) * BLOCKSIZE * (M/8);
+
+  T sum = 0;
+#pragma unroll 1
+  for (int i = 0; i < M; i +=2) {
+    T a = sA[(i / 64) * BLOCKSIZE];
+    T b = sB[(i / 64) * BLOCKSIZE];
+    T v = a - b;
+    T a2 = sA[(i / 64 + 1) * BLOCKSIZE];
+    T b2 = sB[(i / 64 + 1) * BLOCKSIZE];
+    T v2 = a2 - b2;
+    for (int i = 0; i < N; i++) {
+      v = v * a - a;
+      v2 = v2 * a - a;
+    }
+    sum += v + v2;
+  }
+  if (threadIdx.x == 0)
+    dC[blockIdx.x] = sum;
+}
+
 int main(int argc, char **argv) {
   nvmlInit();
 
   typedef float dtype;
-  const int M = 4000;
+  const int M = 8000;
   // PARN is a constant from the Makefile, set via -DPARN=X
   const int N = PARN;
   const int BLOCKSIZE = 256;
@@ -102,7 +106,7 @@ int main(int argc, char **argv) {
     dtype *dA = NULL;
     dtype *dB = NULL;
     dtype *dC = NULL;
-    size_t iters = 4000;
+    size_t iters = 500;
 
     GPU_ERROR(cudaMalloc(&dA, data_len * sizeof(dtype)));
     GPU_ERROR(cudaMalloc(&dB, data_len * sizeof(dtype)));
@@ -111,15 +115,16 @@ int main(int argc, char **argv) {
     initKernel<<<blockCount, 256>>>(dA, data_len);
     initKernel<<<blockCount, 256>>>(dB, data_len);
     initKernel<<<blockCount, 256>>>(dC, data_len);
-    testfun<dtype, N, M, BLOCKSIZE><<<blockCount, BLOCKSIZE>>>(dA, dB, dC);
-
     cudaDeviceSynchronize();
+
+
 #pragma omp barrier
 
     double start = dtime();
     for (size_t iter = 0; iter < iters; iter++) {
-      testfun<dtype, N, M, BLOCKSIZE><<<blockCount, BLOCKSIZE>>>(dA, dB, dC);
+      testfun_max_power<dtype, N, M, BLOCKSIZE><<<blockCount, BLOCKSIZE>>>(dA, dB, dC);
     }
+    usleep(1000000);
     nvmlDeviceGetClockInfo(device, NVML_CLOCK_SM, &clock);
     nvmlDeviceGetPowerUsage(device, &power);
     nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &temperature);

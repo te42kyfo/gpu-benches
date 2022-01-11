@@ -123,12 +123,12 @@ double measure(int warpCount, void (*kernel)(T, T *, int)) {
   }
   cudaFree(dA);
 
-  double rcpThru = time.value() * clock * 1e6 / N / iters / warpCount;
+  double rcpThru = time.value() * clock * 1.0e6 / N / iters / warpCount;
   cout << setprecision(1) << fixed << typeid(T).name() << " " << setw(5) << N
        << " " << warpCount << " " << setw(5) << M << " "
        << " " << setw(5) << time.value() * 100 << " " << setw(5)
        << time.spread() * 100 << "%   " << setw(5) << setprecision(2) << rcpThru
-       << "\n";
+       << "  " << setw(9) << clock << "MHz\n" ;
   return rcpThru;
 }
 
@@ -138,35 +138,23 @@ template <typename T> void measureTabular(int maxWarpCount) {
   const int N = 128;
   for (int warpCount = 1; warpCount <= maxWarpCount; warpCount *= 2) {
     r[0][{warpCount, 1}] = measure<T, N, 1>(warpCount, FMA_mixed<T, N, 1>);
-    r[1][{warpCount, 1}] = measure<T, N, 1>(warpCount, DIV_separated<T, N, 1>);
-    r[2][{warpCount, 1}] = measure<T, N, 1>(warpCount, SQRT_separated<T, N, 1>);
+    r[1][{warpCount, 1}] = measure<T, N/8, 1>(warpCount, DIV_separated<T, N/8, 1>);
+    r[2][{warpCount, 1}] = measure<T, N/8, 1>(warpCount, SQRT_separated<T, N/8, 1>);
     r[0][{warpCount, 2}] = measure<T, N, 2>(warpCount, FMA_mixed<T, N, 2>);
-    r[1][{warpCount, 2}] = measure<T, N, 2>(warpCount, DIV_separated<T, N, 2>);
-    r[2][{warpCount, 2}] = measure<T, N, 2>(warpCount, SQRT_separated<T, N, 2>);
-    r[0][{warpCount, 3}] = measure<T, N, 3>(warpCount, FMA_mixed<T, N, 3>);
-    r[1][{warpCount, 3}] = measure<T, N, 3>(warpCount, DIV_separated<T, N, 3>);
-    r[2][{warpCount, 3}] = measure<T, N, 3>(warpCount, SQRT_separated<T, N, 3>);
+    r[1][{warpCount, 2}] = measure<T, N/8, 2>(warpCount, DIV_separated<T, N/8, 2>);
+    r[2][{warpCount, 2}] = measure<T, N/8, 2>(warpCount, SQRT_separated<T, N/8, 2>);
     r[0][{warpCount, 4}] = measure<T, N, 4>(warpCount, FMA_mixed<T, N, 4>);
-    r[1][{warpCount, 4}] = measure<T, N, 4>(warpCount, DIV_separated<T, N, 4>);
-    r[2][{warpCount, 4}] = measure<T, N, 4>(warpCount, SQRT_separated<T, N, 4>);
-    r[0][{warpCount, 5}] = measure<T, N, 5>(warpCount, FMA_mixed<T, N, 5>);
-    r[1][{warpCount, 5}] = measure<T, N, 5>(warpCount, DIV_separated<T, N, 5>);
-    r[2][{warpCount, 5}] = measure<T, N, 5>(warpCount, SQRT_separated<T, N, 5>);
-    r[0][{warpCount, 6}] = measure<T, N, 6>(warpCount, FMA_mixed<T, N, 6>);
-    r[1][{warpCount, 6}] = measure<T, N, 6>(warpCount, DIV_separated<T, N, 6>);
-    r[2][{warpCount, 6}] = measure<T, N, 6>(warpCount, SQRT_separated<T, N, 6>);
-    r[0][{warpCount, 7}] = measure<T, N, 7>(warpCount, FMA_mixed<T, N, 7>);
-    r[1][{warpCount, 7}] = measure<T, N, 7>(warpCount, DIV_separated<T, N, 7>);
-    r[2][{warpCount, 7}] = measure<T, N, 7>(warpCount, SQRT_separated<T, N, 7>);
+    r[1][{warpCount, 4}] = measure<T, N/8, 4>(warpCount, DIV_separated<T, N/8, 4>);
+    r[2][{warpCount, 4}] = measure<T, N/8, 4>(warpCount, SQRT_separated<T, N/8, 4>);
     r[0][{warpCount, 8}] = measure<T, N, 8>(warpCount, FMA_mixed<T, N, 8>);
-    r[1][{warpCount, 8}] = measure<T, N, 8>(warpCount, DIV_separated<T, N, 8>);
-    r[2][{warpCount, 8}] = measure<T, N, 8>(warpCount, SQRT_separated<T, N, 8>);
+    r[1][{warpCount, 8}] = measure<T, N/8, 8>(warpCount, DIV_separated<T, N/8, 8>);
+    r[2][{warpCount, 8}] = measure<T, N/8, 8>(warpCount, SQRT_separated<T, N/8, 8>);
     cout << "\n";
   }
 
   for (int i = 0; i < 3; i++) {
     for (int warpCount = 1; warpCount <= maxWarpCount; warpCount *= 2) {
-      for (int streams = 1; streams <= 8; streams++) {
+      for (int streams = 1; streams <= 8; streams*=2) {
         cout << setw(6) << setprecision(2) << r[i][{warpCount, streams}] << " ";
       }
       cout << "\n";
@@ -178,5 +166,5 @@ template <typename T> void measureTabular(int maxWarpCount) {
 int main(int argc, char **argv) {
   nvmlInit();
 
-  measureTabular<double>(32);
+  measureTabular<float>(16);
 }
