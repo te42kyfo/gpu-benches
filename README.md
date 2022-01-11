@@ -218,35 +218,10 @@ Results from a NVIDIA A100-SXM4-40GB / CUDA 1.3
 
 Pointer chasing benchmark for latency measurement. A single warp fully traverses a buffer in random order. A partitioning scheme is used to ensure that all cache lines are hit exactly once before they are accessed again. Latency in clock cycles is computed with the current clock rate.
 
-Example results for a Tesla-V100-PCIe-16GB
-``` console
-  MHz       kB       ms   cycles
- 1380        0      2.9    30.0
- 1380        0      2.8    30.0
- 1380        1      2.8    30.0
- 1380        2      2.8    30.0
- 1380        4      2.9    30.0
- 1380        8      2.9    30.1
- 1380       16      2.9    30.3
- 1380       32      2.9    30.7
- 1380       64      3.0    31.4
- 1380      128      7.4    78.3
- 1380      256     20.4   214.4
- 1380      512     20.4   214.4
- 1380     1024     20.4   214.4
- 1380     2048     20.4   214.4
- 1380     4096     20.4   214.4
- 1380     8192     40.6   428.0
- 1380    16384     81.3   427.9
- 1380    32768    162.6   428.0
- 1380    65536    328.5   432.3
- 1380   131072    660.2   434.4
- 1380   262144   1323.5   435.5
- 1380   524288   2650.5   436.0
-```
+![latency plot](cuda-latency/cache_plot.svg)
 
+On Volta, the L1 cache (128kB) and L2 cache (6MB) are clearly visible. On Ampere, the L1 cache is increased to 192kB, and there is a close and a far L2 cache partition at 20MB each.
 
-Both the L1 cache (128kB) and the L2 cache(6MB) are clearly visible
 
 # cuda-incore
 
