@@ -14,6 +14,9 @@ INCLUDES 	:=  -I$(CUDA_HOME)/extras/CUPTI/include
 $(PREFIX)/$(NAME): main.cu Makefile
 	$(NVCC) $(NVCCFLAGS) $(INCLUDES) -o $@ $< $(LDFLAGS)
 
+$(PREFIX)/$(NAME)-gsl: main_gsl.cu Makefile
+	$(NVCC) $(NVCCFLAGS) $(INCLUDES) -o $@ $< $(LDFLAGS)
+
 
 clean:
 	rm -f ./$(NAME)
