@@ -6,15 +6,14 @@ CUDA_HOME :=  $(shell echo $(TEMP_NVCC) | rev |  cut -d'/' -f3- | rev)
 # internal flags
 NVCCFLAGS   := -std=c++17 -O3 -arch=sm_70 --compiler-options="-O2 -pipe -Wall -fopenmp -g" -Xcompiler -rdynamic --generate-line-info  -Xcompiler \"-Wl,-rpath,$(CUDA_HOME)/extras/CUPTI/lib64/\"
 CCFLAGS     := 
-LDFLAGS     := -L/opt/cuda/lib64 -L$(CUDA_HOME)/extras/CUPTI/lib64 -lcupti -lcuda   -lnvidia-ml
+LDFLAGS     := -L$(CUDA_HOME)/lib64 -L$(CUDA_HOME)/extras/CUPTI/lib64 -lcupti -lcuda   -lnvidia-ml -lnvperf_host -lnvperf_target
 NAME 		:= cuda-cache
 PREFIX		:= .
-INCLUDES 	:=  -I$(CUDA_HOME)/extras/CUPTI/include
+INCLUDES 	:=  -I$(CUDA_HOME)/extras/CUPTI/include -I$(CUDA_HOME)/include
 
 $(PREFIX)/$(NAME): main.cu Makefile
 	$(NVCC) $(NVCCFLAGS) $(INCLUDES) -o $@ $< $(LDFLAGS)
 
 
 clean:
-	rm -f ./$(NAME)
-
+	rm -f ./$(NAME)1 ./$(NAME)2
