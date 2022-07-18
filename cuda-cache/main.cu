@@ -20,15 +20,17 @@ __global__ void initKernel(double *A, size_t N) {
 template <int N, int iters, int BLOCKSIZE>
 __global__ void sumKernel(double * __restrict__ A, const double * __restrict__ B, int zero) {
   double localSum = 0;
+
+  B += threadIdx.x;
 #pragma unroll(1)
   for (int iter = 0; iter < iters; iter++) {
+      B += zero;
     for (int i = 0; i < N; i += BLOCKSIZE) {
-      int idx = i + threadIdx.x + iter*zero;
-      localSum += B[idx];
+      localSum += B[i];
     }
-    localSum *= 1.3;
-    if (threadIdx.x > 1233)
-      A[threadIdx.x + blockIdx.x * blockDim.x] = 2.3;
+    //localSum *= 1.3;
+    //if (threadIdx.x > 12323 )
+    //  A[threadIdx.x + blockIdx.x * blockDim.x] = 2.3;
   }
   if (threadIdx.x > 1233)
     A[threadIdx.x] += localSum;
@@ -42,7 +44,7 @@ template <int N, int iters, int blockSize> double callKernel(int blockCount) {
 template <int N> void measure() {
   const int iters = 100000000 / N + 2;
 
-  const int blockSize = 1024;
+  const int blockSize = 512;
 
   cudaDeviceProp prop;
   int deviceId;
@@ -121,13 +123,13 @@ int main(int argc, char **argv) {
 
 
   measure<2*512>();
-  measure<3*512>();
+  //measure<3*512>();
   measure<4*512>();
-  measure<5*512>();
+  //measure<5*512>();
   measure<6*512>();
-  measure<7*512>();
+  //measure<7*512>();
   measure<8*512>();
-  measure<9*512>();
+  //measure<9*512>();
   measure<10*512>();
   measure<11*512>();
   measure<12*512>();
