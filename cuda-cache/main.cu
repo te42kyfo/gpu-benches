@@ -7,9 +7,11 @@
 
 using namespace std;
 
-double *dA, *dB;
+using dtype=double;
 
-__global__ void initKernel(double *A, size_t N) {
+dtype *dA, *dB;
+
+__global__ void initKernel(dtype *A, size_t N) {
   size_t tidx = blockDim.x * blockIdx.x + threadIdx.x;
   for (int idx = tidx; idx < N; idx += blockDim.x * gridDim.x) {
     A[idx] = 1.1;
@@ -17,8 +19,8 @@ __global__ void initKernel(double *A, size_t N) {
 }
 
 template <int N, int iters, int BLOCKSIZE>
-__global__ void sumKernel(double * __restrict__ A, const double * __restrict__ B, int zero) {
-  double localSum = 0;
+__global__ void sumKernel(dtype * __restrict__ A, const dtype * __restrict__ B, int zero) {
+  dtype localSum = 0;
 
   B += threadIdx.x;
 //#pragma unroll(2)
@@ -66,9 +68,9 @@ template <int N> void measure() {
 
   for (int i = 0; i < 15; i++) {
     const size_t bufferCount = N;// + i * 1282;
-    GPU_ERROR(cudaMalloc(&dA, bufferCount * sizeof(double)));
+    GPU_ERROR(cudaMalloc(&dA, bufferCount * sizeof(dtype)));
     initKernel<<<52, 256>>>(dA, bufferCount);
-    GPU_ERROR(cudaMalloc(&dB, bufferCount* sizeof(double)));
+    GPU_ERROR(cudaMalloc(&dB, bufferCount* sizeof(dtype)));
     initKernel<<<52, 256>>>(dB, bufferCount);
     GPU_ERROR(cudaDeviceSynchronize());
 
@@ -90,7 +92,7 @@ template <int N> void measure() {
     GPU_ERROR(cudaFree(dA));
     GPU_ERROR(cudaFree(dB));
   }
-  double blockDV = N * sizeof(double);
+  double blockDV = N * sizeof(dtype);
 
   double bw = blockDV * blockCount * iters / time.minValue() / 1.0e9;
   cout << fixed << setprecision(0) << setw(10) << blockDV / 1024 << " kB" //
