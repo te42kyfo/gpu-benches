@@ -81,70 +81,14 @@ Measures CUDA Unified Memory transfer rate using a STREAM triad kernel. A range 
 
 # cuda-cache
 
-Measures bandwidths of different cache levels. Launches one thread block per SM. Each thread block reads the contents of the same buffer. Varying buffer sizes changes the targeted cache level. Example output on a Tesla V100 PCIe 32GB:
+Measures bandwidths of different cache levels. Launches one thread block per SM. Each thread block reads repeatedly reads the contents of the same buffer. Varying buffer sizes changes the targeted cache level.
 
 
-``` console
-     data set   exec time     spread        Eff. bw        meas. L2 Read      meas. Tex Read
-         8 kB        11ms       1.7%   12087.2 GB/s             0.1 GB/s        12274.3 GB/s
-        24 kB         9ms       0.1%   13491.1 GB/s             0.2 GB/s        13494.8 GB/s
-        32 kB         9ms       0.0%   13679.2 GB/s             0.3 GB/s        13419.6 GB/s
-        48 kB         9ms       0.2%   13744.4 GB/s             0.4 GB/s        13753.4 GB/s
-        56 kB         9ms       0.1%   13794.8 GB/s             0.5 GB/s        13797.1 GB/s
-        72 kB         9ms       0.1%   13855.9 GB/s             0.6 GB/s        13854.0 GB/s
-        88 kB         9ms       0.2%   13867.6 GB/s             0.8 GB/s        13870.8 GB/s
-       104 kB         9ms       0.0%   13895.6 GB/s             0.9 GB/s        13896.1 GB/s
-       112 kB         9ms       0.1%   13896.8 GB/s             1.0 GB/s        13882.9 GB/s
-       128 kB        10ms       4.0%   13243.0 GB/s          1040.5 GB/s        13484.1 GB/s
-       136 kB        10ms      10.7%   12444.5 GB/s          1462.3 GB/s        13159.4 GB/s
-       152 kB        12ms      10.1%   10953.1 GB/s           744.2 GB/s        11212.3 GB/s
-       168 kB        15ms      33.5%    8634.4 GB/s          1181.1 GB/s         8730.1 GB/s
-       184 kB        39ms     103.2%    3287.4 GB/s          1130.6 GB/s         6258.3 GB/s
-       192 kB        55ms      34.1%    2326.8 GB/s          2060.4 GB/s         2230.4 GB/s
-       216 kB        58ms       1.9%    2188.4 GB/s          2191.4 GB/s         2195.4 GB/s
-       232 kB        60ms       9.2%    2133.6 GB/s          2101.5 GB/s         2094.3 GB/s
-       256 kB        56ms       1.7%    2286.0 GB/s          2479.5 GB/s         2477.4 GB/s
-       384 kB        59ms       2.8%    2178.7 GB/s          2224.9 GB/s         2224.9 GB/s
-       592 kB        53ms       4.9%    2427.8 GB/s          2377.0 GB/s         2383.8 GB/s
-       680 kB        54ms       7.0%    2388.2 GB/s          2480.7 GB/s         2483.8 GB/s
-      1032 kB        58ms       1.7%    2196.4 GB/s          2218.4 GB/s         2217.6 GB/s
-      1368 kB        58ms       0.5%    2201.8 GB/s          2200.2 GB/s         2200.5 GB/s
-      3640 kB        57ms       0.1%    2253.3 GB/s          2254.5 GB/s         2251.3 GB/s
+![cache plot](cuda-cache/cuda-cache.svg)
 
-```
+The 16kB (MI100), 128kB (V100) and 192kB (A100) L1 cache capacities are very pronounced and sharp. V100 and A100 both transfer close to 128B/cycle/SM, the maximum measured value on the MI100 is only 32B/cycle/CU. 
 
-NVIDIA A100-SXM4-40GB
-
-``` console
-     data set   exec time     spread        Eff. bw
-        8 kB        14ms       2.6%   12577.1 GB/s
-        24 kB        10ms       3.7%   17667.1 GB/s
-        48 kB         9ms       0.8%   18770.0 GB/s
-        64 kB         9ms       0.1%   19090.8 GB/s
-        72 kB         9ms       0.5%   19100.9 GB/s
-        80 kB         9ms       0.1%   19174.4 GB/s
-       104 kB         9ms       0.4%   19206.1 GB/s
-       120 kB         9ms       0.6%   19218.7 GB/s
-       144 kB         9ms       0.0%   19293.1 GB/s
-       152 kB         9ms       0.2%   19294.0 GB/s
-       168 kB         9ms       4.3%   18318.8 GB/s
-       184 kB        10ms       9.0%   17206.7 GB/s
-       192 kB        11ms       6.5%   15680.9 GB/s
-       216 kB        18ms      67.7%    9680.0 GB/s
-       224 kB        25ms      72.0%    6847.9 GB/s
-       248 kB        40ms       4.7%    4317.2 GB/s
-       384 kB        47ms       2.4%    3694.1 GB/s
-       512 kB        45ms       1.6%    3834.3 GB/s
-       592 kB        34ms       1.6%    5063.1 GB/s
-       680 kB        34ms       0.8%    5036.9 GB/s
-       896 kB        45ms       0.4%    3857.0 GB/s
-      1368 kB        45ms       0.3%    3875.7 GB/s
-      2392 kB        44ms       0.1%    3892.4 GB/s
-      3640 kB        44ms       0.1%    3890.8 GB/s
-```
-
-
-![cache plot](cuda-cache/cache_plot.svg)
+Even for data set sizes larger than the L2 cache, there is no clear performance transition drop. Because all thread blocks read the same data, there is a lot of reuse potential inside the L2 cache before the data is evicted. The exception is the A100, where there is a small drop at 20MB, which is the capacity of each of its two L2 cache sections. Beyond this point, data cannot be replicated in both L2 cache sections and the maximum bandwidth drops, as data has also to be fetched from the other section.
 
 
 # cuda-stream

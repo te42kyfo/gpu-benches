@@ -18,7 +18,7 @@ for filename in sorted( os.listdir(".") ):
         sizes = []
         bw = []
         for row in csvreader:
-            if row[0] == "data":
+            if row[0] == "data" or not row[0].isnumeric():
                 continue
             sizes.append(float(row[0]))
             bw.append(float(row[4]))
@@ -34,9 +34,10 @@ ax.set_xscale("log")
 ax.set_xticks([16,  64, 256, 1024, 4096, 16384])
 ax.set_xticklabels([16, 64, 256, 1024, 4096, 16384])
 
-ax.axvline(16, color="black", alpha=0.7)
-ax.axvline(192, color="black", alpha=0.7)
-
+ax.axvline(16, color="C0", alpha=0.7)
+ax.axvline(128, color="C1", alpha=0.7)
+ax.axvline(192, color="C2", alpha=0.7)
+ax.axvline(20*1024, color="C2", alpha=0.7)
 
 ax.grid()
 ax.legend()
@@ -46,4 +47,4 @@ ax.set_ylim([0, ax.get_ylim()[1]*1.1])
 
 fig.tight_layout()
 plt.show()
-fig.savefig("cuda-cache.pdf")
+fig.savefig("cuda-cache.svg")
