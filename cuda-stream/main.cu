@@ -181,7 +181,7 @@ void measureKernels(vector<pair<kernel_ptr_type, int>> kernels, int blockSize,
   std::string deviceName = prop.name;
   int smCount = prop.multiProcessorCount;
 
-  cout << setw(9) << blockSize << "   " << setw(9) << smCount * blockSize
+  cout << setw(9) << blockSize << "   " << setw(9) << smCount * blockSize * blocksPerSM
        << "  " << setw(5) << setprecision(1)
        << blockSize / 1024.0 * 50.0 * blocksPerSM << " %  |  GB/s: ";
 
