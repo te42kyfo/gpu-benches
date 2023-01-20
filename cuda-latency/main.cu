@@ -3,14 +3,27 @@
 #include <cuda_runtime.h>
 #include <iomanip>
 #include <iostream>
-#include <nvml.h>
 #include <omp.h>
 #include <random>
 #include <sys/time.h>
 #include "../gpu-error.h"
 #include "../dtime.hpp"
+#include "../MeasurementSeries.hpp"
+#include "../gpu_clock.cuh"
+
 
 using namespace std;
+
+
+__device__ unsigned int
+smid()
+{
+  unsigned int r;
+
+  asm("mov.u32 %0, %%smid;" : "=r"(r));
+
+  return r;
+}
 
 template <typename T>
 __global__ void pchase(T *  buf, T * __restrict__ dummy_buf, int64_t N) {
@@ -19,7 +32,7 @@ __global__ void pchase(T *  buf, T * __restrict__ dummy_buf, int64_t N) {
   int64_t *idx = buf;
 
   const int unroll_factor = 32;
-#pragma unroll(1)
+#pragma unroll 1
   for (int64_t n = 0; n < N; n += unroll_factor) {
       #pragma unroll
     for (int u = 0; u < unroll_factor; u++) {
@@ -34,29 +47,32 @@ __global__ void pchase(T *  buf, T * __restrict__ dummy_buf, int64_t N) {
 
 int main(int argc, char **argv) {
 
-  nvmlInit();
-  nvmlDevice_t device;
-  nvmlDeviceGetHandleByIndex(0, &device);
-  unsigned int clock = 0;
+  unsigned int clock = getGPUClock();
 
   typedef int64_t dtype;
 
-  const int cl_size = 2;
+  const int cl_size = 1;
   const int skip_factor = 8;
 
-  for (size_t LEN = 256; LEN < (1 << 28); LEN = LEN * 1.02 + 8) {
+  for (size_t LEN = 16; LEN < (1 << 24); LEN = LEN * 1.1 + 16) {
       if(LEN*skip_factor*cl_size * sizeof(dtype) > 80*1024*1024) LEN *= 1.5;
 
-    const int64_t iters =
-        max((int64_t)2, ((int64_t)1 << 19) / LEN) * LEN * cl_size;
+    const int64_t iters = max(LEN, (int64_t) 1000000);
+    //const int64_t iters =
+    //    max((int64_t)2, ((int64_t)1 << 19) / LEN) * LEN * cl_size;
+
+
     vector<int64_t> order(LEN);
     int64_t *buf = NULL;
+    int64_t *dbuf = NULL;
     dtype *dummy_buf = NULL;
 
     GPU_ERROR(
         cudaMallocManaged(&buf, skip_factor * cl_size * LEN * sizeof(dtype)));
+    GPU_ERROR(
+        cudaMalloc(&dbuf, skip_factor * cl_size * LEN * sizeof(dtype)));
     GPU_ERROR(cudaMallocManaged(&dummy_buf, sizeof(dtype)));
-    for (size_t i = 0; i < LEN; i++) {
+    for (int64_t i = 0; i < LEN; i++) {
       order[i] = i + 1;
     }
     order[LEN - 1] = 0;
@@ -67,7 +83,7 @@ int main(int argc, char **argv) {
 
     for (int cl_lane = 0; cl_lane < cl_size; cl_lane++) {
       dtype idx = 0;
-      for (size_t i = 0; i < LEN; i++) {
+      for (int64_t i = 0; i < LEN; i++) {
 
         buf[(idx * cl_size + cl_lane) * skip_factor] =
             skip_factor *
@@ -78,22 +94,27 @@ int main(int argc, char **argv) {
     buf[skip_factor * (order[LEN - 2] * cl_size + cl_size - 1)] = 0;
 
     for (int64_t n = 0; n < LEN * cl_size * skip_factor; n++) {
-      buf[n] = (int64_t)buf + buf[n] * sizeof(int64_t *);
+      buf[n] = (int64_t)dbuf + buf[n] * sizeof(int64_t *);
     }
 
-    pchase<dtype><<<1, 32>>>(buf, dummy_buf, iters);
-    nvmlDeviceGetClockInfo(device, NVML_CLOCK_SM, &clock);
-    pchase<dtype><<<1, 32>>>(buf, dummy_buf, iters);
-    cudaDeviceSynchronize();
-    double start = dtime();
-    pchase<dtype><<<1, 32>>>(buf, dummy_buf, iters);
-    cudaDeviceSynchronize();
-    double end = dtime();
+    cudaMemcpy(dbuf, buf, skip_factor * cl_size * LEN * sizeof(dtype), cudaMemcpyHostToDevice);
+
+    pchase<dtype><<<1, 64>>>(buf, dummy_buf, iters);
+
+    MeasurementSeries times;
+    for(int i = 0; i < 7; i++) {
+        GPU_ERROR(cudaDeviceSynchronize());
+        double start = dtime();
+        pchase<dtype><<<1, 64>>>(buf, dummy_buf, iters);
+        GPU_ERROR(cudaDeviceSynchronize());
+        double end = dtime();
+        times.add(end-start);
+    }
 
     GPU_ERROR(cudaGetLastError());
 
-    double dt = end - start;
-    cout << setw(5) << clock << " " //
+    double dt = times.minValue();
+    cout << setw(9) << iters << " " << setw(5) << clock << " " //
          << setw(8) << skip_factor * LEN * cl_size * sizeof(dtype) / 1024
          << " "                                            //
          << fixed                                          //
@@ -102,6 +123,7 @@ int main(int argc, char **argv) {
          << (double)dt / iters * clock * 1000 * 1000 << "\n" << flush;
 
     GPU_ERROR(cudaFree(buf));
+    GPU_ERROR(cudaFree(dbuf));
     GPU_ERROR(cudaFree(dummy_buf));
   }
   cout << "\n";
