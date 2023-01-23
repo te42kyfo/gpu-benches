@@ -4,7 +4,9 @@ TEMP_NVCC := $(shell which nvcc)
 CUDA_HOME :=  $(shell echo $(TEMP_NVCC) | rev |  cut -d'/' -f3- | rev)
 
 TEMP_HIPCC := $(shell which hipcc)
-HIP_HOME :=  $(shell echo $(TEMP_HIPCC) | rev |  cut -d'/' -f4- | rev)
+HIP_HOME :=  /opt/rocm
+
+#$(shell echo $(TEMP_HIPCC) | rev |  cut -d'/' -f4- | rev)
 
 # internal flags
 NVCCFLAGS   := -std=c++17 -O3 -arch=sm_70 --compiler-options="-O2 -pipe -Wall -fopenmp -g" -Xcompiler -rdynamic --generate-line-info  -Xcompiler \"-Wl,-rpath,$(CUDA_HOME)/extras/CUPTI/lib64/\"
@@ -24,7 +26,8 @@ main.hip: main.cu
 	hipify-perl main.cu > main.hip
 
 $(PREFIX)/hip-$(NAME): main.hip Makefile ../rocm-metrics/rocm-metrics.hpp
+	echo $(HIP_HOME)
 	hipcc -std=c++20 -I$(HIP_HOME)/include/rocprofiler/ -I$(HIP_HOME)/hsa/include/hsa -L$(HIP_HOME)/rocprofiler/lib -lrocprofiler64 -lhsa-runtime64 -ldl -o $@ $<
 
 clean:
-	rm -f cuda-cache hip-cache
+	rm -f cuda-$(NAME) hip-$(NAME)

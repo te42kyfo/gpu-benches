@@ -14,24 +14,25 @@ dtype *dA, *dB;
 __global__ void initKernel(dtype *A, size_t N) {
   size_t tidx = blockDim.x * blockIdx.x + threadIdx.x;
   for (int idx = tidx; idx < N; idx += blockDim.x * gridDim.x) {
-    A[idx] = 1.1;
+    A[idx] = (dtype) {1.1, 1.1};
   }
 }
 
 template <int N, int iters, int BLOCKSIZE>
 __global__ void sumKernel(dtype * __restrict__ A, const dtype * __restrict__ B, int zero) {
-  dtype localSum = 0;
+  dtype localSum = (dtype){0, 0};
 
   B += threadIdx.x;
-//#pragma unroll(2)
+//#pragma unroll(4)
   for (int iter = 0; iter < iters; iter++) {
       B += zero;
-    for (int i = 0; i < N; i += BLOCKSIZE) {
-      localSum += B[i];
-    }
-    localSum *= 1.3;
+      #pragma unroll N/BLOCKSIZE >= 64 ? 32 : N/BLOCKSIZE
+      for (int i = 0; i < N; i += BLOCKSIZE) {
+          localSum += B[i];
+      }
+    localSum *= (dtype) 1.3;
   }
-  if (localSum == 1233)
+  if (localSum == (dtype) 1233)
     A[threadIdx.x] += localSum;
 }
 
