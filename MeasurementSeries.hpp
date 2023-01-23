@@ -37,6 +37,10 @@ public:
     return *begin(data);
   }
 
+  double maxValue() {
+    std::sort(begin(data), end(data));
+    return data.back();
+  }
   double spread() {
     if (data.size() <= 1)
       return 0.0;
