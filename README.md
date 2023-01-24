@@ -79,7 +79,7 @@ The 16kB (MI100/MI210), 128kB (V100), 192kB (A100) and 256 kB (H100) L1 cache ca
 
 Even for data set sizes larger than the L2 cache, there is no clear performance transition drop. Because all thread blocks read the same data, there is a lot of reuse potential inside the L2 cache before the data is evicted. A100 and H100 drop slightly at 20/25MB, when the capacity of a single cache section is exceeded. Beyond this point, data cannot be replicated in both L2 cache sections and the maximum bandwidth drops, as data has also to be fetched from the other section.
 
- gpu-strides
+## gpu-strides
 
 Read only, L1 cache benchmark that accesses memory with strides 1 to 128. The bandwidth is converted to Bytes per cycle and SM. The strides from 1 to 128 are formatted in a 16x8 tableau, because that highlights the recurring patterns of multiples of 2/4/8/16. 
 
@@ -92,6 +92,8 @@ AMD's MI210 appears to have even more banks, with especially stark slowdowns to 
 Testing the stencil-like, 2D structured grid access with different thread block shapes reveals differences in the L1 cache throughput:
 
 ![image](https://user-images.githubusercontent.com/3269202/214323402-16debc41-72c4-4824-aa2a-bc34772f361d.png)
+
+(see the generated machine code of MI210 and A100 here: https://godbolt.org/z/1PvWqs9Kf)
 
 AMD's MI210 is fine (at its much lower level), as long as contiguous blocks of at least 4 threads are accessed. NVIDIA's only reach their maximum throughput for 16 wide thread blocks. 
 
