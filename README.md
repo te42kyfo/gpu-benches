@@ -3,7 +3,7 @@ Benchmarks that are called ```gpu-<benchmarkname>``` are hipifyable! Whereas the
 
 
 
-# gpu-stream
+## gpu-stream
 
 Measures the bandwidth of streaming kernels for varying occupancy. A shared memory allocation serves as a spoiler, so that only two thread blocks can run per SM. Scanning the thread block size from 32 to 1024 scans the occupancy from 3% to 100%.
 
@@ -60,7 +60,7 @@ The results for the SCALE kernel and a selection of GPUs:
 
 Note that the H100 results are for the PCIe version, which has lower DRAM bandwidth than the SXM version!
 
-# cuda-latency
+## gpu-latency
 
 Pointer chasing benchmark for latency measurement. A single warp fully traverses a buffer in random order. A partitioning scheme is used to ensure that all cache lines are hit exactly once before they are accessed again. Latency in clock cycles is computed with the current clock rate.
 
@@ -69,7 +69,7 @@ Pointer chasing benchmark for latency measurement. A single warp fully traverses
 Sharp L1 cache transitions at 128/192/256 kB for NVIDIAS V100/A100/H100 and at 16kB for AMD's MI210. V100 and MI210 both have a 6MB L2 cache. The A100's and H100 have a segmented L2 cache at 2x20MB and 2x25MB, which results as a small intermediate plateau when data is fetched from the far L2 section. 
 
 
-# gpu-cache
+## gpu-cache
 
 Measures bandwidths of different cache levels. Launches one thread block per SM. Each thread block repeatedly reads the contents of the same buffer. Varying buffer sizes changes the targeted cache level.
 
@@ -79,7 +79,7 @@ The 16kB (MI100/MI210), 128kB (V100), 192kB (A100) and 256 kB (H100) L1 cache ca
 
 Even for data set sizes larger than the L2 cache, there is no clear performance transition drop. Because all thread blocks read the same data, there is a lot of reuse potential inside the L2 cache before the data is evicted. A100 and H100 drop slightly at 20/25MB, when the capacity of a single cache section is exceeded. Beyond this point, data cannot be replicated in both L2 cache sections and the maximum bandwidth drops, as data has also to be fetched from the other section.
 
-# gpu-strides
+ gpu-strides
 
 Read only, L1 cache benchmark that accesses memory with strides 1 to 128. The bandwidth is converted to Bytes per cycle and SM. The strides from 1 to 128 are formatted in a 16x8 tableau, because that highlights the recurring patterns of multiples of 2/4/8/16. 
 
@@ -98,7 +98,7 @@ AMD's MI210 is fine (at its much lower level), as long as contiguous blocks of a
 Along with the L1 cache size increass, both Ampere and Hopper also slightly improve the rate of L1 cache address lookups. 
 
 
-# cuda-roofline
+## cuda-roofline
 
 This program scans a range of Computational Intensities, by varying the amount of inner loop trips.  It is suitable both to study the transition from memory- to compute bound codes as well as power consumption, clock frequencies and temperatures when using multiple GPUs. The shell script series.sh builds an executable for each value, and executes them one afer another after finishing building.
 
@@ -122,7 +122,7 @@ The Code runs simultaneously on all available devices. Example output on four Te
 ```
 
 
-# cuda-memcpy
+## cuda-memcpy
 
 Measures the host-to-device transfer rate of the cudaMemcpy function over a range of transfer sizes
 
@@ -151,7 +151,7 @@ Example output for a Tesla V100 PCIe 16GB
    1048576kB    86.91ms   12.35GB/s   0.00%
 ```
 
-# um-stream
+## um-stream
 
 Measures CUDA Unified Memory transfer rate using a STREAM triad kernel. A range of data set sizes is used, both smaller and larger than the device memory. Example output on a Tesla V100 PCIe 16GB:
 
@@ -175,7 +175,7 @@ Measures CUDA Unified Memory transfer rate using a STREAM triad kernel. A range 
 
 
 
-# cuda-incore
+## cuda-incore
 
 Measures the latency and throughput of FMA, DIV and SQRT operation. It scans combinations of ILP=1..8, by generating 1..8 independent dependency chains, and TLP, by varying the warp count on a SM from 1 to 32. The final output is a ILP/TLP table, with the reciprocal throughputs (cycles per operation):
 
