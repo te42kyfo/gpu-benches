@@ -128,12 +128,12 @@ std::vector<double> measureMetricStop() {
   // print_results(feature, feature_count);
 
 
-  double hits = (feature[0].data.result_double - prevValues[0]);
-  double misses = (feature[1].data.result_double - prevValues[1]);
+  double v1 = (feature[0].data.result_double - prevValues[0]);
+  double v2 = (feature[1].data.result_double - prevValues[1]);
 
 
-  results[0] = misses*32;
-  results[2] = hits+misses;
+  results[0] = v1 * 32;
+  results[2] = (v2 * 32) / 32;
 
   
 
@@ -190,9 +190,9 @@ void initMeasureMetric() {
 
   // Counters and metrics
   feature[0].kind = ROCPROFILER_FEATURE_KIND_METRIC;
-  feature[0].name = "TCC_HIT_sum";
+  feature[0].name = "TCP_TOTAL_CACHE_ACCESSES_sum";
   feature[1].kind = ROCPROFILER_FEATURE_KIND_METRIC;
-  feature[1].name = "TCC_MISS_sum";
+  feature[1].name = "TCP_TCC_READ_REQ_sum";
 
   //feature[2].kind = ROCPROFILER_FEATURE_KIND_METRIC;
   //feature[2].name = "FETCH_SIZE";
