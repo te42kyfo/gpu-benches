@@ -1,104 +1,87 @@
-// $ cat makefile
-// CUPTI = /opt/cuda/extras/CUPTI
-//
-// all: cupti
-//
-// cupti: cupti.cu
-//	nvcc -I$(CUPTI)/include -arch=sm_30 $< -o $@ -L$(CUPTI)/lib64 -lcupti
-//-Xlinker -rpath=$(CUPTI)/lib64
-//
-// clean:
-//	rm -rf cupti
+#include "dtime.hpp"
+#include "gpu-error.h"
+#include <unistd.h>
+#include <iostream>
 
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <cuda.h>
-#include <cupti.h>
+#ifdef __NVCC__
+#include <nvml.h>
+#endif
+#ifdef __HIP__
+#include <rocm_smi/rocm_smi.h>
+#endif
 
-#define BUF_SIZE (32 * 1024)
-#define ALIGNMENT 8
 
-#define CUPTI_CHECKED_CALL(x)                                                  \
-  do {                                                                         \
-    CUptiResult err = x;                                                       \
-    if ((err) != CUPTI_SUCCESS) {                                              \
-      const char *errstr;                                                      \
-      cuptiGetResultString(err, &errstr);                                      \
-      printf("Error \"%s\" at %s:%d\n", errstr, __FILE__, __LINE__);           \
-      exit(-1);                                                                \
-    }                                                                          \
-  } while (0)
+__global__ void powerKernel(double* A, int iters) {
+    int tidx = threadIdx.x + blockIdx.x*blockDim.x;
 
-void CUPTIAPI allocBuffer(uint8_t **buffer, size_t *size,
-                          size_t *maxNumRecords) {
-  if (posix_memalign((void **)buffer, ALIGNMENT, BUF_SIZE) != 0) {
-    fprintf(stderr, "Error: out of memory\n");
-    exit(-1);
-  }
-
-  *size = BUF_SIZE;
-  *maxNumRecords = 0;
-}
-
-void CUPTIAPI freeBuffer(CUcontext ctx, uint32_t streamId, uint8_t *buffer,
-                         size_t size, size_t validSize) {
-  CUptiResult status;
-  CUpti_Activity *record = NULL;
-
-  if (validSize > 0) {
-    do {
-      status = cuptiActivityGetNextRecord(buffer, validSize, &record);
-      if (status == CUPTI_SUCCESS) {
-        if (record->kind == CUPTI_ACTIVITY_KIND_ENVIRONMENT) {
-          CUpti_ActivityEnvironment *env = (CUpti_ActivityEnvironment *)record;
-
-          switch (env->environmentKind) {
-          case CUPTI_ACTIVITY_ENVIRONMENT_SPEED:
-            printf("SPEED\n");
-            printf("\tsmClock = %d\n", env->data.speed.smClock);
-            printf("\tmemoryClock = %d\n", env->data.speed.memoryClock);
-            break;
-          case CUPTI_ACTIVITY_ENVIRONMENT_TEMPERATURE:
-            printf("TEMPERATURE = %d C\n",
-                   env->data.temperature.gpuTemperature);
-            break;
-          case CUPTI_ACTIVITY_ENVIRONMENT_POWER:
-            printf("POWER\n");
-            break;
-          case CUPTI_ACTIVITY_ENVIRONMENT_COOLING:
-            printf("COOLING\n");
-            break;
-          default:
-            printf("<unknown>\n");
-            break;
-          }
-        }
-      } else if (status == CUPTI_ERROR_MAX_LIMIT_REACHED)
-        break;
-      else {
-        CUPTI_CHECKED_CALL(status);
-      }
-    } while (1);
-
-    // Report any records dropped from the queue
-    size_t dropped;
-    CUPTI_CHECKED_CALL(
-        cuptiActivityGetNumDroppedRecords(ctx, streamId, &dropped));
-    if (dropped != 0) {
-      printf("Dropped %u activity records\n", (unsigned int)dropped);
+    double start = A[0];
+    #pragma unroll 1
+    for(int i = 0; i < iters; i++) {
+        start -= (tidx*0.1)*start;
     }
-  }
-
-  free(buffer);
+    A[0] = start;
 }
 
-double get_clock() {
-  CUPTI_CHECKED_CALL(cuptiActivityEnable(CUPTI_ACTIVITY_KIND_ENVIRONMENT));
-  CUPTI_CHECKED_CALL(cuptiActivityRegisterCallbacks(allocBuffer, freeBuffer));
 
-  cudaDeviceSynchronize();
-  cuptiActivityFlushAll(0);
-  CUPTI_CHECKED_CALL(cuptiActivityDisable(CUPTI_ACTIVITY_KIND_ENVIRONMENT));
-  return 1380;
+
+unsigned int getGPUClock() {
+
+    double* dA = NULL;
+#ifdef __NVCC__
+    GPU_ERROR(cudaMalloc(&dA, sizeof(double)));
+#endif
+#ifdef __HIP__
+    GPU_ERROR(hipMalloc(&dA, sizeof(double)));
+#endif
+
+    unsigned int gpu_clock;
+  int iters = 10;
+  double dt = 0;
+  std::cout << "clock: ";
+  while (dt < 0.3) {
+#ifdef __NVCC__
+    GPU_ERROR(cudaDeviceSynchronize());
+#endif
+#ifdef __HIP__
+    GPU_ERROR(hipDeviceSynchronize());
+#endif
+    double t1 = dtime();
+
+    powerKernel<<<100, 1024>>>(dA, iters);
+    usleep(10000);
+
+#ifdef __NVCC__
+    nvmlInit();
+    nvmlDevice_t device;
+    nvmlDeviceGetHandleByIndex(0, &device);
+    nvmlDeviceGetClockInfo(device, NVML_CLOCK_SM, &gpu_clock);
+    GPU_ERROR(cudaDeviceSynchronize());
+#endif
+#ifdef __HIP__
+  int deviceId;
+    GPU_ERROR(hipGetDevice(&deviceId));
+    rsmi_status_t ret;
+    uint32_t num_devices;
+    uint16_t dev_id;
+    rsmi_frequencies_t clockStruct;
+    ret = rsmi_init(0);
+    ret = rsmi_num_monitor_devices(&num_devices);
+    ret = rsmi_dev_gpu_clk_freq_get(deviceId, RSMI_CLK_TYPE_SYS, &clockStruct);
+    gpu_clock = clockStruct.frequency[clockStruct.current] / 1e6;
+    GPU_ERROR(hipDeviceSynchronize());
+#endif
+    double t2 = dtime();
+    std::cout << gpu_clock << " ";
+    std::cout.flush();
+    dt = t2 - t1;
+    iters *= 2;
+  }
+  std::cout << "\n";
+#ifdef __NVCC__
+    GPU_ERROR(cudaFree(dA));
+#endif
+#ifdef __HIP__
+    GPU_ERROR(hipFree(dA));
+#endif
+  return gpu_clock;
 }
