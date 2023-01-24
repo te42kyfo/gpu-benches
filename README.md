@@ -54,9 +54,11 @@ blockSize   threads       %occ  |                init       read       scale    
       992      113088   96.9 %  |  GB/s:        2016       1919       1693       1818       1678       1675
      1024      116736  100.0 %  |  GB/s:        2016       1942       1704       1832       1686       1683
 ```
-Note that the H100 results are for the PCIe version, which has lower DRAM bandwidth than the SXM version!
+The results for the SCALE kernel and a selection of GPUs:
 
-![stream plot A100](gpu-stream/cuda-stream.svg)
+![stream plot](gpu-stream/cuda-stream.svg)
+
+Note that the H100 results are for the PCIe version, which has lower DRAM bandwidth than the SXM version!
 
 # cuda-latency
 
