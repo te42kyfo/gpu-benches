@@ -9,7 +9,7 @@
 #include "../gpu-error.h"
 #include "../dtime.hpp"
 #include "../MeasurementSeries.hpp"
-#include "../gpu_clock.cuh"
+#include "../gpu-clock.cuh"
 
 
 using namespace std;
