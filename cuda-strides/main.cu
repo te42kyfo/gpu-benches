@@ -1,6 +1,7 @@
 #include "../MeasurementSeries.hpp"
 #include "../dtime.hpp"
 #include "../gpu-error.h"
+#include "../gpu-clock.cuh"
 #include <array>
 #include <iomanip>
 #include <iostream>
@@ -34,8 +35,8 @@ __global__ void rake_kernel(T *A, T *B, int zero, int one) {
 
   T sum = T(0.0);
   const int N = 1000;
-
 #pragma unroll 1
+
   for (int n = 0; n < N; n++) {
     int ptr = tidx * STRIDE;
     for (int i = 0; i < ITERS; i++) {
@@ -75,7 +76,6 @@ void measureFunc(kernel_ptr_type func, int stream_count) {
 
   MeasurementSeries time;
 
-  size_t buffer_size = 8 * 1024 * 1024;
   int block_count = 1;
   for (int block_size = 64; block_size <= 1024; block_size += 64) {
     func<<<block_count, block_size>>>(dA, dB, 0, 1);
@@ -93,7 +93,7 @@ void measureFunc(kernel_ptr_type func, int stream_count) {
     }
   }
 
-  cout << fixed << setprecision(1) << " " << setw(5) << time.maxValue();
+  cout << fixed << setprecision(1) << " " << setw(6) << time.maxValue();
   cout.flush();
 }
 
@@ -118,43 +118,10 @@ int main(int argc, char **argv) {
   init_kernel<<<256, 400>>>(dD, dD, max_buffer_size);
   GPU_ERROR(cudaDeviceSynchronize());
 
-  int deviceId;
-  GPU_ERROR(cudaGetDevice(&deviceId));
+  gpu_clock = getGPUClock();
 
-  int iters = 10;
-  double dt = 0;
-  std::cout << "clock: ";
-  while (dt < 0.3) {
-    GPU_ERROR(cudaDeviceSynchronize());
-    double t1 = dtime();
-    for (int i = 0; i < iters; i++)
-      rake_kernel<dtype, 1, 8><<<1000, 1024>>>(dA, dB, 0, 1);
-    usleep(10000);
-
-#ifdef __NVCC__
-    nvmlInit();
-    nvmlDevice_t device;
-    nvmlDeviceGetHandleByIndex(0, &device);
-    nvmlDeviceGetClockInfo(device, NVML_CLOCK_SM, &gpu_clock);
-#endif
-#ifdef __HIP__
-    rsmi_status_t ret;
-    uint32_t num_devices;
-    uint16_t dev_id;
-    rsmi_frequencies_t clockStruct;
-    ret = rsmi_init(0);
-    ret = rsmi_num_monitor_devices(&num_devices);
-    ret = rsmi_dev_gpu_clk_freq_get(deviceId, RSMI_CLK_TYPE_SYS, &clockStruct);
-    gpu_clock = clockStruct.frequency[clockStruct.current] / 1e6;
-#endif
-    GPU_ERROR(cudaDeviceSynchronize());
-    double t2 = dtime();
-    std::cout << gpu_clock << " ";
-    std::cout.flush();
-    dt = t2 - t1;
-    iters *= 2;
-  }
-  std::cout << "\n";
+  std::cout << "\n B/cycle/SM\n";
+  std::cout << "pitch    1x64   2x32   4x16    8x8   16x4   32x2   64x1\n";
 
   constexpr_for<1020, 1026, 1>([](auto i) {
     std::cout << setw(5) << i << " ";
@@ -167,12 +134,13 @@ int main(int argc, char **argv) {
     measureFunc(block_kernel<dtype, 64, i>, 8);
     std::cout << "\n";
   });
-  std::cout << "\n";
+  std::cout << "\n Strides: 1-128, B/cycle/SM\n";
+  std::cout << "      1      2      3      4      5      6      7      8      9     10     11     12     13     14     15     16\n";
 
   constexpr_for<1, 128, 1>([](auto i) {
     const int N = std::max(1, 8 / i);
     measureFunc(rake_kernel<dtype, i, N>, std::min(7, (int)i) * N);
-    if (i % 8 == 0)
+    if (i % 16 == 0)
       cout << "\n";
   });
 

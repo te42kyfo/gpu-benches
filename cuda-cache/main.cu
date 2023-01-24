@@ -14,13 +14,13 @@ dtype *dA, *dB;
 __global__ void initKernel(dtype *A, size_t N) {
   size_t tidx = blockDim.x * blockIdx.x + threadIdx.x;
   for (int idx = tidx; idx < N; idx += blockDim.x * gridDim.x) {
-    A[idx] = (dtype) {1.1, 1.1};
+    A[idx] = (dtype) 1.1;
   }
 }
 
 template <int N, int iters, int BLOCKSIZE>
 __global__ void sumKernel(dtype * __restrict__ A, const dtype * __restrict__ B, int zero) {
-  dtype localSum = (dtype){0, 0};
+  dtype localSum = (dtype)0;
 
   B += threadIdx.x;
 //#pragma unroll(4)
