@@ -1,6 +1,116 @@
-# cuda-roofline
+# GPU benchmarks
+This is a collection of GPU micro benchmarks. Each test is designed to test a particular scenario or hardware mechanism. Some of the benchmarks have been used to produce data for these papers:
 
-Short CUDA code that scans a range of Computational Intensities, by varying the amount of inner loop trips. The shell script series.sh builds an executable for each value, and executes them one afer another after finishing building.
+["Analytical performance estimation during code generation on modern GPUs" ](https://doi.org/10.1016/j.jpdc.2022.11.003)
+
+["Performance engineering for real and complex tall & skinny matrix multiplication kernels on GPUs"](http://dx.doi.org/10.1177/1094342020965661)
+
+
+
+Benchmarks that are called ```gpu-<benchmarkname>``` are hipifyable! Whereas the default Makefile target builds the CUDA executable ```cuda-<benchmarkname>```, the target ```make hip-<benchmarkname>``` uses the hipify-perl tool to create a file ```main.hip``` from the ```main.cu``` file, and builds it using the hip compiler. The CUDA main files are written so that the hipify tool works without further intervention. 
+
+
+
+## gpu-stream
+
+Measures the bandwidth of streaming kernels for varying occupancy. A shared memory allocation serves as a spoiler, so that only two thread blocks can run per SM. Scanning the thread block size from 32 to 1024 scans the occupancy from 3% to 100%.
+
+
+Kernel | Formula |   |
+-------|----------|---|
+init  | A[i] = c  |   1 store stream
+read | sum = A[i] |   1 load stream
+scale | A[i] = B[i] * c |   1 load stream, 1 store stream
+triad | A[i] = B[i] + c * C[i] |  2 load streams, 1 store stream
+3pt | A[i] = B[i-1] + B[i] + B[i+1] |  1 load streams, 1 store stream
+5pt | A[i] = B[i-2] + B[i-1] + B[i] + B[i+1] + B[i+2] |  1 load streams, 1 store stream
+
+
+Results from a NVIDIA-H100-PCIe  / CUDA 11.7
+``` console
+blockSize   threads       %occ  |                init       read       scale     triad       3pt        5pt
+       32        3648      3 %  |  GB/s:         228         96        183        254        168        164
+       64        7296    6.2 %  |  GB/s:         452        189        341        459        316        310
+       96       10944    9.4 %  |  GB/s:         676        277        472        635        443        436
+      128       14592   12.5 %  |  GB/s:         888        368        607        821        567        558
+      160       18240   15.6 %  |  GB/s:        1093        449        704        966        680        670
+      192       21888   18.8 %  |  GB/s:        1301        533        817       1121        794        781
+      224       25536   21.9 %  |  GB/s:        1495        612        925       1264        903        889
+      256       29184   25.0 %  |  GB/s:        1686        702       1037       1399       1005        989
+      288       32832   28.1 %  |  GB/s:        1832        764       1124       1487       1100       1082
+      320       36480   31.2 %  |  GB/s:        2015        841       1213       1564       1188       1169
+      352       40128   34.4 %  |  GB/s:        2016        908       1295       1615       1269       1250
+      384       43776   37.5 %  |  GB/s:        2016        985       1378       1644       1348       1326
+      416       47424   40.6 %  |  GB/s:        2016       1045       1439       1641       1415       1395
+      448       51072   43.8 %  |  GB/s:        2016       1116       1497       1649       1472       1453
+      480       54720   46.9 %  |  GB/s:        2016       1179       1544       1655       1521       1505
+      512       58368   50.0 %  |  GB/s:        2017       1261       1583       1675       1556       1545
+      544       62016   53.1 %  |  GB/s:        2016       1300       1591       1669       1572       1563
+      576       65664   56.2 %  |  GB/s:        2016       1362       1607       1678       1587       1579
+      608       69312   59.4 %  |  GB/s:        2018       1416       1619       1689       1598       1592
+      640       72960   62.5 %  |  GB/s:        2016       1473       1639       1712       1613       1607
+      672       76608   65.6 %  |  GB/s:        2016       1527       1638       1714       1618       1613
+      704       80256   68.8 %  |  GB/s:        2015       1578       1644       1725       1625       1619
+      736       83904   71.9 %  |  GB/s:        2016       1624       1651       1738       1632       1628
+      768       87552   75.0 %  |  GB/s:        2016       1680       1666       1755       1642       1638
+      800       91200   78.1 %  |  GB/s:        2015       1714       1663       1758       1645       1642
+      832       94848   81.2 %  |  GB/s:        2016       1759       1668       1770       1649       1647
+      864       98496   84.4 %  |  GB/s:        2016       1795       1673       1779       1654       1651
+      896      102144   87.5 %  |  GB/s:        2016       1837       1686       1796       1663       1662
+      928      105792   90.6 %  |  GB/s:        2018       1871       1684       1800       1666       1664
+      960      109440   93.8 %  |  GB/s:        2016       1897       1688       1808       1672       1670
+      992      113088   96.9 %  |  GB/s:        2016       1919       1693       1818       1678       1675
+     1024      116736  100.0 %  |  GB/s:        2016       1942       1704       1832       1686       1683
+```
+The results for the SCALE kernel and a selection of GPUs:
+
+![stream plot](gpu-stream/cuda-stream.svg)
+
+Note that the H100 results are for the PCIe version, which has lower DRAM bandwidth than the SXM version!
+
+## gpu-latency
+
+Pointer chasing benchmark for latency measurement. A single warp fully traverses a buffer in random order. A partitioning scheme is used to ensure that all cache lines are hit exactly once before they are accessed again. Latency in clock cycles is computed with the current clock rate.
+
+![latency plot](gpu-latency/latency_plot.svg)
+
+Sharp L1 cache transitions at 128/192/256 kB for NVIDIAS V100/A100/H100 and at 16kB for AMD's MI210. V100 and MI210 both have a 6MB L2 cache. The A100's and H100 have a segmented L2 cache at 2x20MB and 2x25MB, which results as a small intermediate plateau when data is fetched from the far L2 section. 
+
+
+## gpu-cache
+
+Measures bandwidths of different cache levels. Launches one thread block per SM. Each thread block repeatedly reads the contents of the same buffer. Varying buffer sizes changes the targeted cache level.
+
+![cache plot](gpu-cache/cuda-cache.svg)
+
+The 16kB (MI100/MI210), 128kB (V100), 192kB (A100) and 256 kB (H100) L1 cache capacities are very pronounced and sharp. The three NVIDIA architectures both transfer close to 128B/cycle/SM, the maximum measured value on AMD's MI100 and MI210 depends on the data type. For double precision, the maximum is 32B/cycle/CU. For single precision and 16B data types (either float4 or double2) the bandwidth is up to 64B. 
+
+Even for data set sizes larger than the L2 cache, there is no clear performance transition drop. Because all thread blocks read the same data, there is a lot of reuse potential inside the L2 cache before the data is evicted. A100 and H100 drop slightly at 20/25MB, when the capacity of a single cache section is exceeded. Beyond this point, data cannot be replicated in both L2 cache sections and the maximum bandwidth drops, as data has also to be fetched from the other section.
+
+## gpu-strides
+
+Read only, L1 cache benchmark that accesses memory with strides 1 to 128. The bandwidth is converted to Bytes per cycle and SM. The strides from 1 to 128 are formatted in a 16x8 tableau, because that highlights the recurring patterns of multiples of 2/4/8/16. 
+
+![image](https://user-images.githubusercontent.com/3269202/214321378-9969f484-1067-47cd-8e11-1bab56c26534.png)
+
+These multiples are important for NVIDIA's architecture, which clearly have their L1 cache structured in a 16 banks of 8B. For strides that are a multiple of 16, every single thread accesses data from the same cache bank. The rate of address translation is reduced when addresses do not fall into the same 128B cache line anymore.
+
+AMD's MI210 appears to have even more banks, with especially stark slowdowns to less than 4B/cycle for multiples of 32. 
+
+Testing the stencil-like, 2D structured grid access with different thread block shapes reveals differences in the L1 cache throughput:
+
+![image](https://user-images.githubusercontent.com/3269202/214323402-16debc41-72c4-4824-aa2a-bc34772f361d.png)
+
+(see the generated machine code of MI210 and A100 here: https://godbolt.org/z/1PvWqs9Kf)
+
+AMD's MI210 is fine (at its much lower level), as long as contiguous blocks of at least 4 threads are accessed. NVIDIA's only reach their maximum throughput for 16 wide thread blocks. 
+
+Along with the L1 cache size increass, both Ampere and Hopper also slightly improve the rate of L1 cache address lookups. 
+
+
+## cuda-roofline
+
+This program scans a range of Computational Intensities, by varying the amount of inner loop trips.  It is suitable both to study the transition from memory- to compute bound codes as well as power consumption, clock frequencies and temperatures when using multiple GPUs. The shell script series.sh builds an executable for each value, and executes them one afer another after finishing building.
 
 The Code runs simultaneously on all available devices. Example output on four Tesla V100 PCIe 16GB:
 
@@ -14,14 +124,7 @@ The Code runs simultaneously on all available devices. Example output on four Te
 0 640 blocks     8 its      1.125 Fl/B        861 GB/s       968 GF/s   1380 Mhz   142 W   56°C
 2 640 blocks     8 its      1.125 Fl/B        861 GB/s       968 GF/s   1380 Mhz   157 W   62°C
 3 640 blocks     8 its      1.125 Fl/B        861 GB/s       968 GF/s   1380 Mhz   144 W   59°C
-
 [...]
-
-3 640 blocks    56 its      7.125 Fl/B        841 GB/s      5990 GF/s   1380 Mhz   227 W   66°C
-1 640 blocks    56 its      7.125 Fl/B        841 GB/s      5990 GF/s   1372 Mhz   249 W   71°C
-2 640 blocks    56 its      7.125 Fl/B        841 GB/s      5990 GF/s   1380 Mhz   235 W   69°C
-0 640 blocks    56 its      7.125 Fl/B        841 GB/s      5990 GF/s   1380 Mhz   220 W   62°C
-
 0 640 blocks    64 its      8.125 Fl/B        811 GB/s      6587 GF/s   1380 Mhz   223 W   63°C
 3 640 blocks    64 its      8.125 Fl/B        813 GB/s      6604 GF/s   1380 Mhz   230 W   66°C
 1 640 blocks    64 its      8.125 Fl/B        812 GB/s      6595 GF/s   1380 Mhz   241 W   71°C
@@ -29,7 +132,7 @@ The Code runs simultaneously on all available devices. Example output on four Te
 ```
 
 
-# cuda-memcpy
+## cuda-memcpy
 
 Measures the host-to-device transfer rate of the cudaMemcpy function over a range of transfer sizes
 
@@ -58,7 +161,7 @@ Example output for a Tesla V100 PCIe 16GB
    1048576kB    86.91ms   12.35GB/s   0.00%
 ```
 
-# um-stream
+## um-stream
 
 Measures CUDA Unified Memory transfer rate using a STREAM triad kernel. A range of data set sizes is used, both smaller and larger than the device memory. Example output on a Tesla V100 PCIe 16GB:
 
@@ -79,85 +182,10 @@ Measures CUDA Unified Memory transfer rate using a STREAM triad kernel. A range 
 ```
 
 
-# cuda-cache
-
-Measures bandwidths of different cache levels. Launches one thread block per SM. Each thread block reads repeatedly reads the contents of the same buffer. Varying buffer sizes changes the targeted cache level.
-
-
-![cache plot](cuda-cache/cuda-cache.svg)
-
-The 16kB (MI100), 128kB (V100) and 192kB (A100) L1 cache capacities are very pronounced and sharp. V100 and A100 both transfer close to 128B/cycle/SM, the maximum measured value on the MI100 is only 32B/cycle/CU. 
-
-Even for data set sizes larger than the L2 cache, there is no clear performance transition drop. Because all thread blocks read the same data, there is a lot of reuse potential inside the L2 cache before the data is evicted. The exception is the A100, where there is a small drop at 20MB, which is the capacity of each of its two L2 cache sections. Beyond this point, data cannot be replicated in both L2 cache sections and the maximum bandwidth drops, as data has also to be fetched from the other section.
-
-
-# cuda-stream
-
-Measures the bandwidth of streaming kernels for varying occupancy. A shared memory allocation serves as a spoiler, so that only two thread blocks can run per SM. Scanning the thread block size from 32 to 1024 scans the occupancy from 3% to 100%.
-
-
-Kernel | Formula |   |
--------|----------|---|
-init  | A[i] = c  |   1 store stream
-read | sum = A[i] |   1 load stream
-scale | A[i] = B[i] * c |   1 load stream, 1 store stream
-triad | A[i] = B[i] + c * C[i] |  2 load streams, 1 store stream
-3pt | A[i] = B[i-1] + B[i] + B[i+1] |  1 load streams, 1 store stream
-5pt | A[i] = B[i-2] + B[i-1] + B[i] + B[i+1] + B[i+2] |  1 load streams, 1 store stream
 
 
 
-
-Results from a NVIDIA A100-SXM4-40GB / CUDA 11.6
-``` console
-blockSize   threads       %occ  |                init       read       scale     triad       1pt       3pt
-       32        3456      3 %  |  GB/s:         163         68        128        179        121        118
-       64        6912    6.2 %  |  GB/s:         323        133        248        345        229        225
-       96       10368    9.4 %  |  GB/s:         477        194        347        481        330        324
-      128       13824   12.5 %  |  GB/s:         628        257        469        643        431        423
-      160       17280   15.6 %  |  GB/s:         766        313        541        738        516        504
-      192       20736   18.8 %  |  GB/s:         908        372        642        873        605        590
-      224       24192   21.9 %  |  GB/s:        1041        427        718        970        688        669
-      256       27648   25.0 %  |  GB/s:        1170        492        828       1100        773        752
-      288       31104   28.1 %  |  GB/s:        1299        537        879       1164        840        816
-      320       34560   31.2 %  |  GB/s:        1412        593        964       1253        920        894
-      352       38016   34.4 %  |  GB/s:        1501        642       1028       1298        986        957
-      384       41472   37.5 %  |  GB/s:        1501        699       1112       1333       1056       1022
-      416       44928   40.6 %  |  GB/s:        1502        741       1158       1334       1107       1064
-      448       48384   43.8 %  |  GB/s:        1501        792       1220       1350       1168       1128
-      480       51840   46.9 %  |  GB/s:        1502        834       1259       1349       1212       1177
-      512       55296   50.0 %  |  GB/s:        1503        898       1303       1359       1254       1222
-      544       58752   53.1 %  |  GB/s:        1501        917       1310       1359       1282       1248
-      576       62208   56.2 %  |  GB/s:        1502        960       1328       1367       1310       1284
-      608       65664   59.4 %  |  GB/s:        1502       1000       1329       1368       1316       1301
-      640       69120   62.5 %  |  GB/s:        1503       1046       1341       1375       1324       1313
-      672       72576   65.6 %  |  GB/s:        1502       1073       1339       1375       1329       1320
-      704       76032   68.8 %  |  GB/s:        1502       1113       1349       1381       1337       1328
-      736       79488   71.9 %  |  GB/s:        1502       1143       1348       1382       1339       1332
-      768       82944   75.0 %  |  GB/s:        1502       1184       1356       1387       1343       1335
-      800       86400   78.1 %  |  GB/s:        1501       1201       1355       1388       1346       1338
-      832       89856   81.2 %  |  GB/s:        1503       1234       1361       1392       1351       1343
-      864       93312   84.4 %  |  GB/s:        1502       1258       1362       1394       1353       1344
-      896       96768   87.5 %  |  GB/s:        1501       1288       1367       1395       1355       1346
-      928      100224   90.6 %  |  GB/s:        1500       1306       1367       1395       1358       1350
-      960      103680   93.8 %  |  GB/s:        1502       1332       1372       1396       1361       1353
-      992      107136   96.9 %  |  GB/s:        1501       1350       1372       1396       1363       1355
-     1024      110592  100.0 %  |  GB/s:        1502       1387       1378       1394       1366       1358
-
-```
-
-![stream plot A100](cuda-stream/cuda-stream.svg)
-
-# cuda-latency
-
-Pointer chasing benchmark for latency measurement. A single warp fully traverses a buffer in random order. A partitioning scheme is used to ensure that all cache lines are hit exactly once before they are accessed again. Latency in clock cycles is computed with the current clock rate.
-
-![latency plot](cuda-latency/cache_plot.svg)
-
-On Volta, the L1 cache (128kB) and L2 cache (6MB) are clearly visible. On Ampere, the L1 cache is increased to 192kB, and there is a close and a far L2 cache partition at 20MB each.
-
-
-# cuda-incore
+## cuda-incore
 
 Measures the latency and throughput of FMA, DIV and SQRT operation. It scans combinations of ILP=1..8, by generating 1..8 independent dependency chains, and TLP, by varying the warp count on a SM from 1 to 32. The final output is a ILP/TLP table, with the reciprocal throughputs (cycles per operation):
 
