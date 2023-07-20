@@ -25,4 +25,6 @@ $(PREFIX)/hip-$(NAME): main.hip Makefile ../rocm-metrics/rocm-metrics.hpp
 	hipcc -std=c++20 -I$(HIP_HOME)/include/rocprofiler/ -I$(HIP_HOME)/hsa/include/hsa -L$(HIP_HOME)/rocprofiler/lib -lrocprofiler64 -lhsa-runtime64 -ldl -o $@ $<
 
 clean:
-	rm -f ./$(NAME)
+	rm -f ./cuda-$(NAME)
+	rm -f main.hip
+	rm -f ./hip-$(NAME)

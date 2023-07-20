@@ -38,7 +38,7 @@ for filename in sorted(os.listdir("."), key=lambda f1: getOrderNumber(f1)):
                 continue
             sizes.append(float(row[2]))
             bw.append(float(row[6]))
-            L2bw.append(float(row[10]))
+            L2bw.append(float(row[12]))
 
         print(sizes)
         print(bw)
@@ -63,7 +63,7 @@ for filename in sorted(os.listdir("."), key=lambda f1: getOrderNumber(f1)):
             color="C" + str(getOrderNumber(filename)),
         )
 
-ax.set_xlabel("data volume per SM/CU, kB")
+ax.set_xlabel("data volume per SM/CU, MB")
 ax.set_ylabel("GB/s")
 ax.set_xscale("log", base=2)
 
@@ -72,16 +72,16 @@ ax2.set_xlabel("data volume per SM/CU, kB")
 ax2.set_ylabel("GB/s")
 ax2.set_xscale("log", base=2)
 
-formatter = matplotlib.ticker.FuncFormatter(lambda x, pos: "{0:g}".format(x))
+formatter = matplotlib.ticker.FuncFormatter(lambda x, pos: "{0:g}".format(x / 1024))
 ax.get_xaxis().set_major_formatter(formatter)
-ax.get_yaxis().set_major_formatter(formatter)
+# ax.get_yaxis().set_major_formatter(formatter)
 
 ax2.get_xaxis().set_major_formatter(formatter)
 ax2.get_yaxis().set_major_formatter(formatter)
 
-ax.set_xticks([256, 6 * 1024, 20 * 1024, 40 * 1024, 128 * 1024])
+ax.set_xticks([1024, 4 * 1024, 8 * 1024, 20 * 1024, 40 * 1024, 128 * 1024, 1024 * 1024])
 
-ax2.set_xticks([256, 6 * 1024, 20 * 1024, 40 * 1024, 128 * 1024])
+ax2.set_xticks([1024, 6 * 1024, 20 * 1024, 40 * 1024, 128 * 1024])
 
 fig.autofmt_xdate()
 ax.set_ylim([0, ax.get_ylim()[1] * 1.1])
@@ -96,5 +96,5 @@ ax2.legend()
 fig2.tight_layout()
 
 plt.show()
-fig.savefig("cuda-cache.pdf")
-fig2.savefig("cuda-cache-l2.pdf")
+fig.savefig("cuda-cache.svg")
+# fig2.savefig("cuda-cache-l2.svg")

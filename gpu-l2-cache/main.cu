@@ -7,21 +7,24 @@
 
 using namespace std;
 
+#ifdef __NVCC__
 using dtype = double;
-
+#else
+using dtype = float4;
+#endif
 dtype *dA, *dB;
 
 __global__ void initKernel(dtype *A, size_t N) {
   size_t tidx = blockDim.x * blockIdx.x + threadIdx.x;
   for (int idx = tidx; idx < N; idx += blockDim.x * gridDim.x) {
-    A[idx] = 1.1;
+    A[idx] = dtype(1.1);
   }
 }
 
 template <int N, int BLOCKSIZE>
 __global__ void sumKernel(dtype *__restrict__ A, const dtype *__restrict__ B,
                           int blockRun) {
-  dtype localSum = 0;
+  dtype localSum = dtype(0);
 
   for (int i = 0; i < N; i++) {
     int idx = blockDim.x * blockRun * i + (blockIdx.x % blockRun) * BLOCKSIZE +
@@ -34,7 +37,8 @@ __global__ void sumKernel(dtype *__restrict__ A, const dtype *__restrict__ B,
     A[threadIdx.x] += localSum;
 }
 
-template <int N, int blockSize> dtype callKernel(int blockCount, int blockRun) {
+template <int N, int blockSize>
+double callKernel(int blockCount, int blockRun) {
   sumKernel<N, blockSize><<<blockCount, blockSize>>>(dA, dB, blockRun);
   GPU_ERROR(cudaPeekAtLastError());
   return 0.0;
@@ -65,7 +69,7 @@ template <int N> void measure(int blockRun) {
   MeasurementSeries L2_write;
 
   GPU_ERROR(cudaDeviceSynchronize());
-  for (int i = 0; i < 9; i++) {
+  for (int i = 0; i < 7; i++) {
     const size_t bufferCount = blockRun * blockSize * N + i * 128;
     GPU_ERROR(cudaMalloc(&dA, bufferCount * sizeof(dtype)));
     initKernel<<<52, 256>>>(dA, bufferCount);
@@ -79,18 +83,17 @@ template <int N> void measure(int blockRun) {
     double t2 = dtime();
     time.add(t2 - t1);
 
-    // measureMetricsStart({"dram__bytes_read.sum", "dram__bytes_write.sum",
-    //                      "lts__t_sectors_srcunit_tex_op_read.sum",
-    //                      "lts__t_sectors_srcunit_tex_op_write.sum"});
-    //
-    // measureMetricsStart({"GL2C_MISS_sum"});
+    measureDRAMBytesStart();
+    callKernel<N, blockSize>(blockCount, blockRun);
+    auto metrics = measureDRAMBytesStop();
+    dram_read.add(metrics[0]);
+    dram_write.add(metrics[1]);
 
-    // callKernel<N, blockSize>(blockCount, blockRun);
-    // auto metrics = measureMetricStop();
-    // dram_read.add(metrics[0] * 1024);
-    //  dram_write.add(metrics[1]);
-    //    L2_read.add(metrics[2] * 32);
-    //    L2_write.add(metrics[3] * 32);
+    measureL2BytesStart();
+    callKernel<N, blockSize>(blockCount, blockRun);
+    metrics = measureL2BytesStop();
+    L2_read.add(metrics[0]);
+    L2_write.add(metrics[1]);
 
     GPU_ERROR(cudaFree(dA));
     GPU_ERROR(cudaFree(dB));
@@ -98,20 +101,21 @@ template <int N> void measure(int blockRun) {
 
   double blockDV = N * blockSize * sizeof(dtype);
 
-  double bw = blockDV * blockCount / time.median() / 1.0e9;
+  double bw = blockDV * blockCount / time.minValue() / 1.0e9;
   cout << fixed << setprecision(0) << setw(10) << blockDV / 1024 << " kB" //
        << fixed << setprecision(0) << setw(10) << blockDV * blockRun / 1024
-       << " kB"                                                         //
-       << setprecision(0) << setw(10) << time.median() * 1000.0 << "ms" //
-       << setprecision(1) << setw(10) << time.spread() * 100 << "%"     //
-       << setw(10) << bw << " GB/s   "                                  //
-       << setprecision(0) << setw(6) << dram_read.median() << " GB/s "  //
+       << " kB"                                                           //
+       << setprecision(0) << setw(10) << time.minValue() * 1000.0 << "ms" //
+       << setprecision(1) << setw(10) << time.spread() * 100 << "%"       //
+       << setw(10) << bw << " GB/s   "                                    //
        << setprecision(0) << setw(6)
-       << dram_write.median() / time.median() / 1.0e9 << " GB/s " //
-       << setprecision(0) << setw(6) << L2_read.median() / time.median() / 1.0e9
-       << " GB/s " //
+       << dram_read.minValue() / time.minValue() / 1.0e9 << " GB/s " //
        << setprecision(0) << setw(6)
-       << L2_write.median() / time.median() / 1.0e9 << " GB/s " << endl; //
+       << dram_write.minValue() / time.minValue() / 1.0e9 << " GB/s " //
+       << setprecision(0) << setw(6)
+       << L2_read.minValue() / time.minValue() / 1.0e9 << " GB/s " //
+       << setprecision(0) << setw(6)
+       << L2_write.minValue() / time.minValue() / 1.0e9 << " GB/s " << endl; //
 }
 
 size_t constexpr expSeries(size_t N) {
@@ -129,7 +133,11 @@ int main(int argc, char **argv) {
        << setw(11) << "spread"     //
        << setw(15) << "Eff. bw\n"; //
 
-  for (int i = 1; i < 100000; i += max(1.0, i * 0.1)) {
+  for (int i = 1; i < 10000; i += max(1.0, i * 0.1)) {
+#ifdef __NVCC__
     measure<32>(i);
+#else
+    measure<24>(i);
+#endif
   }
 }
