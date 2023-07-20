@@ -79,13 +79,23 @@ Sharp L1 cache transitions at 128/192/256 kB for NVIDIAS V100/A100/H100 and at 1
 
 ## gpu-cache
 
-Measures bandwidths of different cache levels. Launches one thread block per SM. Each thread block repeatedly reads the contents of the same buffer. Varying buffer sizes changes the targeted cache level.
+Measures bandwidths of the higher cache levels. Launches one thread block per SM. Each thread block repeatedly reads the contents of the same buffer. Varying buffer sizes changes the targeted cache level.
 
 ![cache plot](gpu-cache/cuda-cache.svg)
 
 The 16kB (MI100/MI210), 128kB (V100), 192kB (A100) and 256 kB (H100) L1 cache capacities are very pronounced and sharp. The three NVIDIA architectures both transfer close to 128B/cycle/SM, the maximum measured value on AMD's MI100 and MI210 depends on the data type. For double precision, the maximum is 32B/cycle/CU. For single precision and 16B data types (either float4 or double2) the bandwidth is up to 64B. 
 
 Even for data set sizes larger than the L2 cache, there is no clear performance transition drop. Because all thread blocks read the same data, there is a lot of reuse potential inside the L2 cache before the data is evicted. A100 and H100 drop slightly at 20/25MB, when the capacity of a single cache section is exceeded. Beyond this point, data cannot be replicated in both L2 cache sections and the maximum bandwidth drops, as data has also to be fetched from the other section.
+
+## gpu-l2-cache
+
+Measures bandwidths of shared cache levels. This benchmark explicitly does not target the L1 caches.
+
+![cache plot](gpu-l2-cache/cuda-cache.svg)
+
+All three GPUs have a similar L2 cache bandwidths of about 5.x TB/s, though with different capactities. The stand out here is the RX6900XT, which has a second shared cache level, the 128MB Infinity Cache. At almost 1.92 TB/s, it is as fast as the A100's DRAM.
+At the very beginning, the RX6900XT semi-shared L1 cache can be seen, where for some block placements the 4 L1 caches have a small effect. 
+
 
 ## gpu-strides
 
