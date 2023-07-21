@@ -74,9 +74,9 @@ Pointer chasing benchmark for latency measurement. A single warp fully traverses
 
 ![latency plot](gpu-latency/latency_plot.svg)
 
-Sharp L1 cache transitions at 128/192/256 kB for NVIDIAS V100/A100/H100 and at 16kB for AMD's MI210. V100 and MI210 both have a 6MB L2 cache. The A100's and H100 have a segmented L2 cache at 2x20MB and 2x25MB, which results as a small intermediate plateau when data is fetched from the far L2 section. 
+Sharp L1 cache transitions at 128/192/256 kB for NVIDIAS V100/A100/H100 and at 16kB for AMD's MI210. V100 and MI210 both have a 6MB L2 cache. The A100's and H100 have a segmented L2 cache at 2x20MB and 2x25MB, which manifests as a small intermediate plateau when data is fetched from the far L2 section. 
 
-
+The RDNA2 GPU, the RX6900XT, has the most interesting cache hierarchy with its 4 cache levels are clearly visible: the 16kB L0 cache, the 128kB semi-shared L1 cache, the 4MB L2 cache, and the 128MB Infinity cache. It is also the highest clocking GPU, so that the absolute access times would be lower than the other GPUs. Measuring its DRAM latency is difficult, because the DRAM interface does not clock up for a single wavefront, resulting in DRAM latencies > 2000 cycles. 
 ## gpu-cache
 
 Measures bandwidths of the higher cache levels. Launches one thread block per SM. Each thread block repeatedly reads the contents of the same buffer. Varying buffer sizes changes the targeted cache level.
@@ -85,7 +85,7 @@ Measures bandwidths of the higher cache levels. Launches one thread block per SM
 
 The 16kB (MI100/MI210), 128kB (V100), 192kB (A100) and 256 kB (H100) L1 cache capacities are very pronounced and sharp. The three NVIDIA architectures both transfer close to 128B/cycle/SM, the maximum measured value on AMD's MI100 and MI210 depends on the data type. For double precision, the maximum is 32B/cycle/CU. For single precision and 16B data types (either float4 or double2) the bandwidth is up to 64B. 
 
-Even for data set sizes larger than the L2 cache, there is no clear performance transition drop. Because all thread blocks read the same data, there is a lot of reuse potential inside the L2 cache before the data is evicted. A100 and H100 drop slightly at 20/25MB, when the capacity of a single cache section is exceeded. Beyond this point, data cannot be replicated in both L2 cache sections and the maximum bandwidth drops, as data has also to be fetched from the other section.
+This benchmark does not target the memory hierarchy levels past the L2 cache (i.e. DRAM for most GPUs), because the data sets do not clearly drop out of a large shared L2 cache. Because all thread blocks read the same data, there is a lot of reuse potential inside the L2 cache before the data is evicted. A100 and H100 drop slightly at 20/25MB, when the capacity of a single cache section is exceeded. Beyond this point, data cannot be replicated in both L2 cache sections and the maximum bandwidth drops, as data has also to be fetched from the other section.
 
 ## gpu-l2-cache
 
