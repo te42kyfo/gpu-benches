@@ -1,38 +1,45 @@
 #include "../MeasurementSeries.hpp"
 #include "../dtime.hpp"
+#include "../gpu-clock.cuh"
 #include "../gpu-error.h"
-#include "../gpu-metrics.hpp"
+#include "../gpu-metrics/gpu-metrics.hpp"
+
 #include <iomanip>
 #include <iostream>
 
 using namespace std;
 
-using dtype=double;
+#ifdef __NVCC__
+using dtype = double;
+#else
+using dtype = float4;
+#endif
 
 dtype *dA, *dB;
 
 __global__ void initKernel(dtype *A, size_t N) {
   size_t tidx = blockDim.x * blockIdx.x + threadIdx.x;
   for (int idx = tidx; idx < N; idx += blockDim.x * gridDim.x) {
-    A[idx] = (dtype) 1.1;
+    A[idx] = (dtype)1.1;
   }
 }
 
 template <int N, int iters, int BLOCKSIZE>
-__global__ void sumKernel(dtype * __restrict__ A, const dtype * __restrict__ B, int zero) {
+__global__ void sumKernel(dtype *__restrict__ A, const dtype *__restrict__ B,
+                          int zero) {
   dtype localSum = (dtype)0;
 
   B += threadIdx.x;
-//#pragma unroll(4)
+#pragma unroll N / BLOCKSIZE> 32   ? 1 : 32 / (N / BLOCKSIZE)
   for (int iter = 0; iter < iters; iter++) {
-      B += zero;
-      #pragma unroll N/BLOCKSIZE >= 64 ? 32 : N/BLOCKSIZE
-      for (int i = 0; i < N; i += BLOCKSIZE) {
-          localSum += B[i];
-      }
-    localSum *= (dtype) 1.3;
+    B += zero;
+#pragma unroll N / BLOCKSIZE >= 64 ? 32 : N / BLOCKSIZE
+    for (int i = 0; i < N; i += BLOCKSIZE) {
+      localSum += B[i];
+    }
+    localSum *= (dtype)1.3;
   }
-  if (localSum == (dtype) 1233)
+  if (localSum == (dtype)1233)
     A[threadIdx.x] += localSum;
 }
 
@@ -42,7 +49,7 @@ template <int N, int iters, int blockSize> double callKernel(int blockCount) {
 }
 
 template <int N> void measure() {
-  const int iters = 100000000 / N + 2;
+  const size_t iters = (size_t)1000000000 / N + 2;
 
   const int blockSize = 256;
 
@@ -66,12 +73,11 @@ template <int N> void measure() {
 
   GPU_ERROR(cudaDeviceSynchronize());
 
-
   for (int i = 0; i < 15; i++) {
-    const size_t bufferCount = N;// + i * 1282;
+    const size_t bufferCount = N; // + i * 1282;
     GPU_ERROR(cudaMalloc(&dA, bufferCount * sizeof(dtype)));
     initKernel<<<52, 256>>>(dA, bufferCount);
-    GPU_ERROR(cudaMalloc(&dB, bufferCount* sizeof(dtype)));
+    GPU_ERROR(cudaMalloc(&dB, bufferCount * sizeof(dtype)));
     initKernel<<<52, 256>>>(dB, bufferCount);
     GPU_ERROR(cudaDeviceSynchronize());
 
@@ -80,16 +86,19 @@ template <int N> void measure() {
     GPU_ERROR(cudaDeviceSynchronize());
     double t2 = dtime();
     time.add((t2 - t1));
-
-    measureBandwidthStart();
+    /*
+    measureDRAMBytesStart();
     callKernel<N, iters, blockSize>(blockCount);
-    auto metrics = measureMetricStop();
-
+    auto metrics = measureDRAMBytesStop();
     dram_read.add(metrics[0]);
     dram_write.add(metrics[1]);
-    L2_read.add(metrics[2]*32);
-    L2_write.add(metrics[3]*32);
 
+    measureL2BytesStart();
+    callKernel<N, iters, blockSize>(blockCount);
+    metrics = measureL2BytesStop();
+    L2_read.add(metrics[0]);
+    L2_write.add(metrics[1]);
+    */
     GPU_ERROR(cudaFree(dA));
     GPU_ERROR(cudaFree(dB));
   }
@@ -99,67 +108,73 @@ template <int N> void measure() {
   cout << fixed << setprecision(0) << setw(10) << blockDV / 1024 << " kB" //
        << setprecision(0) << setw(10) << time.value() * 1000.0 << "ms"    //
        << setprecision(1) << setw(10) << time.spread() * 100 << "%"       //
-       << setw(10) << bw << " GB/s"                                    //
-       << setprecision(0) << setw(10) << dram_read.value() / time.minValue() / 1.0e9 << " GB/s "    //
-       << setprecision(0) << setw(10) << dram_write.value() / time.minValue() / 1.0e9 << " GB/s "    //
-       << setprecision(0) << setw(10) << L2_read.value() / time.minValue() / 1.0e9 << " GB/s "    //
-       << setprecision(0) << setw(10) << L2_write.value() / time.minValue() / 1.0e9 << " GB/s " << endl;   //
+       << setw(10) << bw << " GB/s"                                       //
+       << setprecision(0) << setw(10)
+       << dram_read.value() / time.minValue() / 1.0e9 << " GB/s " //
+       << setprecision(0) << setw(10)
+       << dram_write.value() / time.minValue() / 1.0e9 << " GB/s " //
+       << setprecision(0) << setw(10)
+       << L2_read.value() / time.minValue() / 1.0e9 << " GB/s " //
+       << setprecision(0) << setw(10)
+       << L2_write.value() / time.minValue() / 1.0e9 << " GB/s " << endl; //
 }
 
 size_t constexpr expSeries(size_t N) {
-    size_t val = 32*512;
-    for( size_t i  = 0; i < N; i++) {
-        val *= 1.17;
-    }
-    return (val / 512) * 512;
+  size_t val = 32 * 512;
+  for (size_t i = 0; i < N; i++) {
+    val *= 1.17;
+  }
+  return (val / 512) * 512;
 }
 
 int main(int argc, char **argv) {
-  cout << setw(13) << "data set" //
-       << setw(12) << "exec time" //
-       << setw(11) << "spread"    //
-       << setw(15) << "Eff. bw" //
-       << setw(16) << "DRAM read" //
+  initMeasureMetric();
+  unsigned int clock = getGPUClock();
+  cout << setw(13) << "data set"   //
+       << setw(12) << "exec time"  //
+       << setw(11) << "spread"     //
+       << setw(15) << "Eff. bw"    //
+       << setw(16) << "DRAM read"  //
        << setw(16) << "DRAM write" //
-       << setw(16) << "L2 read" //
+       << setw(16) << "L2 read"    //
        << setw(16) << "L2 store\n";
 
   initMeasureMetric();
 
   measure<256>();
   measure<512>();
-  measure<3*256>();
-  measure<2*512>();
-  measure<3*512>();
-  measure<4*512>();
-  measure<5*512>();
-  measure<6*512>();
-  measure<7*512>();
-  measure<8*512>();
-  measure<9*512>();
-  measure<10*512>();
-  measure<11*512>();
-  measure<12*512>();
-  measure<13*512>();
-  measure<14*512>();
-  measure<15*512>();
-  measure<16*512>();
-  measure<17*512>();
-  measure<18*512>();
-  measure<19*512>();
-  measure<20*512>();
-  measure<21*512>();
-  measure<22*512>();
-  measure<23*512>();
-  measure<24*512>();
-  measure<25*512>();
-  measure<26*512>();
-  measure<27*512>();
-  measure<28*512>();
-  measure<29*512>();
-  measure<30*512>();
-  measure<31*512>();
-  measure<32*512>();
+  measure<3 * 256>();
+  measure<2 * 512>();
+  measure<3 * 512>();
+  measure<4 * 512>();
+  measure<5 * 512>();
+  measure<6 * 512>();
+  measure<7 * 512>();
+  measure<8 * 512>();
+  measure<9 * 512>();
+  measure<10 * 512>();
+  measure<11 * 512>();
+  measure<12 * 512>();
+  measure<13 * 512>();
+  measure<14 * 512>();
+  measure<15 * 512>();
+  measure<16 * 512>();
+  measure<17 * 512>();
+  measure<18 * 512>();
+  measure<19 * 512>();
+  measure<20 * 512>();
+  measure<21 * 512>();
+  measure<22 * 512>();
+  measure<23 * 512>();
+  measure<24 * 512>();
+  measure<25 * 512>();
+  measure<26 * 512>();
+  measure<27 * 512>();
+  measure<28 * 512>();
+  measure<29 * 512>();
+  measure<30 * 512>();
+  measure<31 * 512>();
+  measure<32 * 512>();
 
   measure<expSeries(1)>();
   measure<expSeries(2)>();
@@ -200,4 +215,13 @@ int main(int argc, char **argv) {
   measure<expSeries(38)>();
   measure<expSeries(39)>();
   measure<expSeries(40)>();
+  measure<expSeries(41)>();
+  measure<expSeries(42)>();
+  measure<expSeries(43)>();
+  measure<expSeries(44)>();
+  measure<expSeries(45)>();
+  measure<expSeries(46)>();
+  measure<expSeries(47)>();
+  measure<expSeries(48)>();
+  measure<expSeries(49)>();
 }
