@@ -10,7 +10,7 @@ plt.style.use("ggplot")
 fig, ax = plt.subplots(figsize=(8, 4))
 fig2, ax2 = plt.subplots(figsize=(8, 4))
 
-order = ["v100", "a100_40", "a100_80", "h100", "mi100", "mi210", "6900xt"]
+order = ["v100", "a100_40", "a100_80", "h100", "mi100", "mi210", "rx6900xt"]
 
 
 def getOrderNumber(f):
