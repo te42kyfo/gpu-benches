@@ -79,13 +79,13 @@ Sharp L1 cache transitions at 128/192/256 kB for NVIDIAS V100/A100/H100 and at 1
 The RDNA2 GPU, the RX6900XT, has the most interesting cache hierarchy with its 4 cache levels are clearly visible: the 16kB L0 cache, the 128kB semi-shared L1 cache, the 4MB L2 cache, and the 128MB Infinity cache. It is also the highest clocking GPU, so that the absolute access times would be lower than the other GPUs. Measuring its DRAM latency is difficult, because the DRAM interface does not clock up for a single wavefront, resulting in DRAM latencies > 2000 cycles. 
 ## gpu-cache
 
-Measures bandwidths of the higher cache levels. Launches one thread block per SM. Each thread block repeatedly reads the contents of the same buffer. Varying buffer sizes changes the targeted cache level.
+Measures bandwidths of the first and second cache level. Launches one thread block per SM. Each thread block repeatedly reads the contents of the same buffer. Varying buffer sizes changes the targeted cache level.
 
 ![cache plot](gpu-cache/cuda-cache.svg)
 
 The 16kB (MI100/MI210), 128kB (V100), 192kB (A100) and 256 kB (H100) L1 cache capacities are very pronounced and sharp. The three NVIDIA architectures both transfer close to 128B/cycle/SM, the maximum measured value on AMD's MI100 and MI210 depends on the data type. For double precision, the maximum is 32B/cycle/CU. For single precision and 16B data types (either float4 or double2) the bandwidth is up to 64B. 
 
-This benchmark does not target the memory hierarchy levels past the L2 cache (i.e. DRAM for most GPUs), because the data sets do not clearly drop out of a large shared L2 cache. Because all thread blocks read the same data, there is a lot of reuse potential inside the L2 cache before the data is evicted. A100 and H100 drop slightly at 20/25MB, when the capacity of a single cache section is exceeded. Beyond this point, data cannot be replicated in both L2 cache sections and the maximum bandwidth drops, as data has also to be fetched from the other section.
+This benchmark does not target the memory hierarchy levels past the second cache level (i.e. DRAM for most GPUs), because the data sets do not clearly drop out of a shared cache. Because all thread blocks read the same data, there is a lot of reuse potential inside shared cache before the data is evicted. The RX6900XT values are bonkers past its 128kB shared L1 cache. A100 and H100 drop slightly at 20/25MB, when the capacity of a single cache section is exceeded. Beyond this point, data cannot be replicated in both L2 cache sections and the maximum bandwidth drops, as data has also to be fetched from the other section.
 
 ## gpu-l2-cache
 
