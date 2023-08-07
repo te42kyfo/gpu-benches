@@ -30,7 +30,7 @@ __global__ void sumKernel(dtype *__restrict__ A, const dtype *__restrict__ B,
     int idx = blockDim.x * blockRun * i + (blockIdx.x % blockRun) * BLOCKSIZE +
               threadIdx.x;
     localSum += B[idx];
-    // A[idx] = 1.23 * B[idx];
+    // A[idx] = dtype(1.23) * B[idx];
   }
   localSum *= (dtype)1.3;
   if (threadIdx.x > 1233 || localSum == (dtype)23.12)
@@ -94,7 +94,6 @@ template <int N> void measure(int blockRun) {
     metrics = measureL2BytesStop();
     L2_read.add(metrics[0]);
     L2_write.add(metrics[1]);
-
     GPU_ERROR(cudaFree(dA));
     GPU_ERROR(cudaFree(dB));
   }
@@ -109,13 +108,13 @@ template <int N> void measure(int blockRun) {
        << setprecision(1) << setw(10) << time.spread() * 100 << "%"       //
        << setw(10) << bw << " GB/s   "                                    //
        << setprecision(0) << setw(6)
-       << dram_read.minValue() / time.minValue() / 1.0e9 << " GB/s " //
+       << dram_read.median() / time.minValue() / 1.0e9 << " GB/s " //
        << setprecision(0) << setw(6)
-       << dram_write.minValue() / time.minValue() / 1.0e9 << " GB/s " //
+       << dram_write.median() / time.minValue() / 1.0e9 << " GB/s " //
        << setprecision(0) << setw(6)
-       << L2_read.minValue() / time.minValue() / 1.0e9 << " GB/s " //
+       << L2_read.median() / time.minValue() / 1.0e9 << " GB/s " //
        << setprecision(0) << setw(6)
-       << L2_write.minValue() / time.minValue() / 1.0e9 << " GB/s " << endl; //
+       << L2_write.median() / time.minValue() / 1.0e9 << " GB/s " << endl; //
 }
 
 size_t constexpr expSeries(size_t N) {

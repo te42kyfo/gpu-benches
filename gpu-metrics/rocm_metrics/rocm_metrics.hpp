@@ -21,9 +21,9 @@
 #define DESTRUCTOR_API __attribute__((destructor))
 
 // Dispatch callbacks and context handlers synchronization
-pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+// pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 // Tool is unloaded
-volatile bool is_loaded = false;
+// volatile bool is_loaded = false;
 // Profiling features
 // rocprofiler_feature_t* features = NULL;
 // unsigned feature_count = 0;
@@ -71,6 +71,11 @@ static hsa_agent_t _get_agent(unsigned gpu_id) {
   return agent_info_arr[gpu_id];
 }
 
+static int get_agent_gfx(unsigned gpu_id) {
+  char agent_name[64];
+  hsa_agent_get_info(_get_agent(0), HSA_AGENT_INFO_NAME, &agent_name);
+  return atoi(agent_name + 3);
+}
 // Context stored entry type
 struct context_entry_t {
   bool completed;
@@ -135,8 +140,14 @@ hsa_status_t dispatch_callback(const rocprofiler_callback_data_t *callback_data,
 }
 
 void initMeasureMetric() {
+  // export ROCP_TOOL_LIB=$TLIB_PATH/librocprof-tool.so
+  // # Enabling HSA dispatches intercepting by ROC PRofiler
 
-  setenv("HSA_TOOLS_LIB", "/opt/rocm/rocprofiler/lib/librocprofiler64.so", 1);
+  unsetenv("ROCP_PROXY_QUEUE");
+  setenv("AQLPROFILE_READ_API", "0", 1);
+  setenv("ROCP_SPM_KFD_MODE", "1", 1);
+
+  // setenv("HSA_TOOLS_LIB", "/opt/rocm/rocprofiler/lib/librocprofiler64.so",
   setenv("ROCP_METRICS", "/opt/rocm/lib/rocprofiler/metrics.xml", 1);
   setenv("ROCP_HSA_INTERCEPT", "1", 1);
   hsa_init();
@@ -146,10 +157,6 @@ void initMeasureMetric() {
   for (unsigned gpu_id = 0; gpu_id < gpu_count; ++gpu_id) {
     hsa_agent_t agent = _get_agent(gpu_id);
     // std::cout << "Agent " << gpu_id << "\n";
-
-    char agent_name[64];
-    hsa_agent_get_info(agent, HSA_AGENT_INFO_NAME, &agent_name);
-    std::cout << agent_name << "\n";
   }
 
   rocprofiler_queue_callbacks_t callbacks_ptrs{};
@@ -232,36 +239,42 @@ std::vector<double> measureMetricsStop() {
 }
 
 void measureDRAMBytesStart() {
-  char agent_name[64];
-  hsa_agent_get_info(_get_agent(0), HSA_AGENT_INFO_NAME, &agent_name);
-  if (agent_name[3] == '9') {
+  if (get_agent_gfx(0) == 90) {
     measureMetricsStart({"FETCH_SIZE", "WRITE_SIZE"});
   } else {
-    measureMetricsStart({"FETCH_SIZE"});
+    measureMetricsStart(
+        {"GL2C_EA_RDREQ_64B_sum", "GL2C_EA_WRREQ_64B_sum", "Wavefronts"});
   }
 }
 
 std::vector<double> measureDRAMBytesStop() {
   auto values = measureMetricsStop();
-  for (auto &v : values) {
-    v *= 1024;
+  if (get_agent_gfx(0) == 90) {
+    values[0] *= 1024;
+    values[1] *= 1024;
+  } else {
+    values[0] *= 64;
+    values[1] *= 64;
   }
   return values;
 }
 
 void measureL2BytesStart() {
-  char agent_name[64];
-  hsa_agent_get_info(_get_agent(0), HSA_AGENT_INFO_NAME, &agent_name);
-  if (agent_name[3] == '9') {
+  if (get_agent_gfx(0) == 90) {
     measureMetricsStart({"TCP_TCC_READ_REQ_sum", "TCP_TCC_WRITE_REQ_sum"});
   } else {
-    measureMetricsStart({"GL2C_HIT_sum", "GL2C_MISS_sum"});
+    measureMetricsStart({"GL2C_HIT_sum", "GL2C_MISS_sum", "Wavefronts"});
   }
 }
 
 std::vector<double> measureL2BytesStop() {
   auto values = measureMetricsStop();
-  values[0] *= 64;
-  values[1] *= 64;
+  if (get_agent_gfx(0) == 90) {
+    values[0] *= 64;
+    values[1] *= 64;
+  } else {
+    values[0] *= 128;
+    values[1] *= 128;
+  }
   return values;
 }

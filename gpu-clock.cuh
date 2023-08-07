@@ -35,10 +35,16 @@ unsigned int getGPUClock() {
 #endif
 
     unsigned int gpu_clock;
-  int iters = 10;
+
+
+
+    int iters = 10;
+
+    powerKernel<<<1000, 1024>>>(dA, iters);
+
   double dt = 0;
   std::cout << "clock: ";
-  while (dt < 0.3) {
+  while (dt < 0.4) {
 #ifdef __NVCC__
     GPU_ERROR(cudaDeviceSynchronize());
 #endif
@@ -47,7 +53,7 @@ unsigned int getGPUClock() {
 #endif
     double t1 = dtime();
 
-    powerKernel<<<100, 1024>>>(dA, iters);
+    powerKernel<<<1000, 1024>>>(dA, iters);
     usleep(10000);
 
 #ifdef __NVCC__
