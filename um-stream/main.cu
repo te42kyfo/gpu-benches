@@ -37,9 +37,9 @@ int main(int argc, char **argv) {
   GPU_ERROR(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&maxActiveBlocks,
                                                           triad, blockSize, 0));
 
-  int blockCount = smCount *maxActiveBlocks;
+  int blockCount = smCount * maxActiveBlocks;
 
-  for (size_t N = 1024 * 1024; N < (size_t)1024 * 1024 * 1024 * 4; N *= 2) {
+  for (size_t N = 1024 * 1024; N < (size_t)1024 * 1024 * 1024 * 16; N *= 2) {
     GPU_ERROR(cudaMallocManaged(&A, N * sizeof(double)));
     GPU_ERROR(cudaMallocManaged(&B, N * sizeof(double)));
     GPU_ERROR(cudaMallocManaged(&C, N * sizeof(double)));
