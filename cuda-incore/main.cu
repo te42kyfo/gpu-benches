@@ -1,12 +1,11 @@
 #include "../MeasurementSeries.hpp"
 #include "../dtime.hpp"
-#include "../gpu-error.h"
 #include "../gpu-clock.cuh"
+#include "../gpu-error.h"
 #include "../metrics.cuh"
 #include <iomanip>
 #include <iostream>
 #include <map>
-#include <nvml.h>
 
 using namespace std;
 
@@ -94,11 +93,12 @@ __global__ void SQRT_separated(T p, T *A, int iters) {
   }
 }
 
+unsigned int gpu_clock = 0;
+
 template <typename T, int N, int M>
 double measure(int warpCount, void (*kernel)(T, T *, int)) {
   nvmlDevice_t device;
   nvmlDeviceGetHandleByIndex(0, &device);
-  unsigned int clock = 0;
 
   const int iters = 10000;
   const int blockSize = 32 * warpCount;
@@ -112,7 +112,6 @@ double measure(int warpCount, void (*kernel)(T, T *, int)) {
   GPU_ERROR(cudaDeviceSynchronize());
 
   kernel<<<blockCount, blockSize>>>((T)0.32, dA, iters);
-  nvmlDeviceGetClockInfo(device, NVML_CLOCK_SM, &clock);
   GPU_ERROR(cudaDeviceSynchronize());
   for (int i = 0; i < 1; i++) {
     double t1 = dtime();
@@ -123,39 +122,47 @@ double measure(int warpCount, void (*kernel)(T, T *, int)) {
   }
   cudaFree(dA);
 
-  double rcpThru = time.value() * clock * 1.0e6 / N / iters / warpCount;
-  cout << setprecision(1) << fixed << typeid(T).name() << " " << setw(5) << N
+  double rcpThru = time.value() * gpu_clock * 1.0e6 / N / iters / warpCount;
+  /*cout << setprecision(1) << fixed << typeid(T).name() << " " << setw(5) << N
        << " " << warpCount << " " << setw(5) << M << " "
        << " " << setw(5) << time.value() * 100 << " " << setw(5)
        << time.spread() * 100 << "%   " << setw(5) << setprecision(2) << rcpThru
-       << "  " << setw(9) << clock << "MHz\n" ;
+       << "  " << setw(9) << clock << "MHz\n" ;*/
   return rcpThru;
 }
 
 template <typename T> void measureTabular(int maxWarpCount) {
 
   vector<map<pair<int, int>, double>> r(3);
-  const int N = 128;
+  const int N = 1024;
   for (int warpCount = 1; warpCount <= maxWarpCount; warpCount *= 2) {
     r[0][{warpCount, 1}] = measure<T, N, 1>(warpCount, FMA_mixed<T, N, 1>);
-    r[1][{warpCount, 1}] = measure<T, N/8, 1>(warpCount, DIV_separated<T, N/8, 1>);
-    r[2][{warpCount, 1}] = measure<T, N/8, 1>(warpCount, SQRT_separated<T, N/8, 1>);
+    r[1][{warpCount, 1}] =
+        measure<T, N / 8, 1>(warpCount, DIV_separated<T, N / 8, 1>);
+    r[2][{warpCount, 1}] =
+        measure<T, N / 8, 1>(warpCount, SQRT_separated<T, N / 8, 1>);
     r[0][{warpCount, 2}] = measure<T, N, 2>(warpCount, FMA_mixed<T, N, 2>);
-    r[1][{warpCount, 2}] = measure<T, N/8, 2>(warpCount, DIV_separated<T, N/8, 2>);
-    r[2][{warpCount, 2}] = measure<T, N/8, 2>(warpCount, SQRT_separated<T, N/8, 2>);
+    r[1][{warpCount, 2}] =
+        measure<T, N / 8, 2>(warpCount, DIV_separated<T, N / 8, 2>);
+    r[2][{warpCount, 2}] =
+        measure<T, N / 8, 2>(warpCount, SQRT_separated<T, N / 8, 2>);
     r[0][{warpCount, 4}] = measure<T, N, 4>(warpCount, FMA_mixed<T, N, 4>);
-    r[1][{warpCount, 4}] = measure<T, N/8, 4>(warpCount, DIV_separated<T, N/8, 4>);
-    r[2][{warpCount, 4}] = measure<T, N/8, 4>(warpCount, SQRT_separated<T, N/8, 4>);
+    r[1][{warpCount, 4}] =
+        measure<T, N / 8, 4>(warpCount, DIV_separated<T, N / 8, 4>);
+    r[2][{warpCount, 4}] =
+        measure<T, N / 8, 4>(warpCount, SQRT_separated<T, N / 8, 4>);
     r[0][{warpCount, 8}] = measure<T, N, 8>(warpCount, FMA_mixed<T, N, 8>);
-    r[1][{warpCount, 8}] = measure<T, N/8, 8>(warpCount, DIV_separated<T, N/8, 8>);
-    r[2][{warpCount, 8}] = measure<T, N/8, 8>(warpCount, SQRT_separated<T, N/8, 8>);
-    cout << "\n";
+    r[1][{warpCount, 8}] =
+        measure<T, N / 8, 8>(warpCount, DIV_separated<T, N / 8, 8>);
+    r[2][{warpCount, 8}] =
+        measure<T, N / 8, 8>(warpCount, SQRT_separated<T, N / 8, 8>);
+    // cout << "\n";
   }
 
   for (int i = 0; i < 3; i++) {
     for (int warpCount = 1; warpCount <= maxWarpCount; warpCount *= 2) {
-      for (int streams = 1; streams <= 8; streams*=2) {
-        cout << setw(6) << setprecision(2) << r[i][{warpCount, streams}] << " ";
+      for (int streams = 1; streams <= 8; streams *= 2) {
+        cout << setw(7) << setprecision(3) << r[i][{warpCount, streams}] << " ";
       }
       cout << "\n";
     }
@@ -164,7 +171,7 @@ template <typename T> void measureTabular(int maxWarpCount) {
 }
 
 int main(int argc, char **argv) {
-  nvmlInit();
-
-  measureTabular<float>(16);
+  gpu_clock = getGPUClock();
+  measureTabular<float>(32);
+  measureTabular<double>(32);
 }
