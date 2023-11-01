@@ -10,7 +10,7 @@
 using namespace std;
 
 #ifdef __NVCC__
-using dtype = double;
+using dtype = float;
 #else
 using dtype = float4;
 #endif

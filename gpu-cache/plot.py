@@ -2,22 +2,15 @@
 
 import os
 import csv
-import matplotlib.pyplot as plt
-import matplotlib
 
-plt.style.use("ggplot")
+import sys
+
+sys.path.append("..")
+from device_order import *
+
 
 fig, ax = plt.subplots(figsize=(8, 4))
 fig2, ax2 = plt.subplots(figsize=(8, 4))
-
-order = ["v100", "a100_40", "a100_80", "h100", "mi100", "mi210", "rx6900xt"]
-
-
-def getOrderNumber(f):
-    for o in range(len(order)):
-        if f.startswith(order[o]):
-            return o
-    return len(order) + 1
 
 
 for filename in sorted(os.listdir("."), key=lambda f1: getOrderNumber(f1)):
@@ -40,27 +33,22 @@ for filename in sorted(os.listdir("."), key=lambda f1: getOrderNumber(f1)):
             bw.append(float(row[4]))
             L2bw.append(float(row[10]))
 
-        print(sizes)
-        print(bw)
+        # print(sizes)
+        # print(bw)
+        print(filename, len(sizes), getOrderNumber(filename))
         ax.plot(
             sizes,
             bw,
-            style,
             label=filename[:-4].upper(),
-            linewidth=3,
-            alpha=0.7,
-            markersize=5,
             color="C" + str(getOrderNumber(filename)),
+            **lineStyle,
         )
         ax2.plot(
             sizes,
             L2bw,
-            style,
             label=filename[:-4].upper(),
-            linewidth=3,
-            alpha=0.7,
-            markersize=5,
             color="C" + str(getOrderNumber(filename)),
+            **lineStyle,
         )
 
 ax.set_xlabel("data volume per SM/CU, kB")

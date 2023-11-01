@@ -8,7 +8,7 @@
 using namespace std;
 
 #ifdef __NVCC__
-using dtype = double;
+using dtype = float;
 #else
 using dtype = float4;
 #endif
@@ -83,17 +83,17 @@ template <int N> void measure(int blockRun) {
     double t2 = dtime();
     time.add(t2 - t1);
 
-    measureDRAMBytesStart();
-    callKernel<N, blockSize>(blockCount, blockRun);
-    auto metrics = measureDRAMBytesStop();
-    dram_read.add(metrics[0]);
-    dram_write.add(metrics[1]);
+    /* measureDRAMBytesStart();
+     callKernel<N, blockSize>(blockCount, blockRun);
+     auto metrics = measureDRAMBytesStop();
+     dram_read.add(metrics[0]);
+     dram_write.add(metrics[1]);
 
-    measureL2BytesStart();
-    callKernel<N, blockSize>(blockCount, blockRun);
-    metrics = measureL2BytesStop();
-    L2_read.add(metrics[0]);
-    L2_write.add(metrics[1]);
+     measureL2BytesStart();
+     callKernel<N, blockSize>(blockCount, blockRun);
+     metrics = measureL2BytesStop();
+     L2_read.add(metrics[0]);
+     L2_write.add(metrics[1]);*/
     GPU_ERROR(cudaFree(dA));
     GPU_ERROR(cudaFree(dB));
   }
@@ -132,7 +132,7 @@ int main(int argc, char **argv) {
        << setw(11) << "spread"     //
        << setw(15) << "Eff. bw\n"; //
 
-  for (int i = 1; i < 10000; i += max(1.0, i * 0.1)) {
+  for (int i = 2; i < 10000; i += max(1.0, i * 0.1)) {
 #ifdef __NVCC__
     measure<32>(i);
 #else
