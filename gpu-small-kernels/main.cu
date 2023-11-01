@@ -72,17 +72,29 @@ void measureFunc(kernel_ptr_type func, int width, int height, dim3 blockSize) {
 
   func<<<grid, blockSize>>>(dA, dB, width, height, false);
 
+  int iters = 10000;
+
+  cudaGraph_t graph;
+  cudaGraphExec_t instance;
+
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
+
+  cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
+  for (int i = 0; i < iters; i += 2) {
+    func<<<grid, blockSize, 0, stream>>>(dA, dB, width, height, false);
+    func<<<grid, blockSize, 0, stream>>>(dB, dA, width, height, false);
+  }
+  cudaStreamEndCapture(stream, &graph);
+  GPU_ERROR(cudaGraphInstantiate(&instance, graph, NULL, NULL, 0));
+
   for (int iter = 0; iter < 3; iter++) {
-    GPU_ERROR(cudaDeviceSynchronize());
+    GPU_ERROR(cudaStreamSynchronize(stream));
     double t1 = dtime();
-    GPU_ERROR(cudaDeviceSynchronize());
-    for (int i = 0; i < 1000; i++) {
-      func<<<grid, blockSize>>>(dA, dB, width, height, false);
-      swap(dA, dB);
-    }
-    GPU_ERROR(cudaDeviceSynchronize());
+    GPU_ERROR(cudaGraphLaunch(instance, stream));
+    GPU_ERROR(cudaStreamSynchronize(stream));
     double t2 = dtime();
-    time.add((t2 - t1) / 1000);
+    time.add((t2 - t1) / iters);
   }
 
   cout << fixed << setprecision(0)
@@ -96,6 +108,9 @@ void measureFunc(kernel_ptr_type func, int width, int height, dim3 blockSize) {
        << "  ";
   ;
   cout.flush();
+  cudaStreamDestroy(stream);
+  cudaGraphDestroy(graph);
+  cudaGraphExecDestroy(instance);
 }
 
 int main(int argc, char **argv) {
