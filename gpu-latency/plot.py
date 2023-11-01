@@ -7,7 +7,7 @@ import matplotlib
 
 plt.style.use("ggplot")
 
-order = ["v100", "a100_40", "a100_80", "h100", "mi100", "mi210", "rx6900xt"]
+order = ["v100", "a100_80", "h100_pcie", "mi100", "mi210", "rx6900xt", "l40"]
 
 
 def getOrderNumber(f):
@@ -19,7 +19,7 @@ def getOrderNumber(f):
 
 fig, ax = plt.subplots(figsize=(8, 4))
 for filename in sorted(os.listdir("."), key=lambda f1: getOrderNumber(f1)):
-    if not filename.endswith(".txt"):
+    if not filename.endswith(".txt") or filename[:-4] not in order:
         continue
     with open(filename, newline="") as csvfile:
         csvreader = csv.reader(csvfile, delimiter=" ", skipinitialspace=True)

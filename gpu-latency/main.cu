@@ -50,8 +50,8 @@ int main(int argc, char **argv) {
   const int cl_size = 1;
   const int skip_factor = 8;
 
-  for (int64_t LEN = 16; LEN < (1 << 24); LEN = LEN * 1.1 + 16) {
-    if (LEN * skip_factor * cl_size * sizeof(dtype) > 80 * 1024 * 1024)
+  for (int64_t LEN = 16; LEN < (1 << 24); LEN = LEN * 1.04 + 32) {
+    if (LEN * skip_factor * cl_size * sizeof(dtype) > 120 * 1024 * 1024)
       LEN *= 1.5;
 
     const int64_t iters = max(LEN, (int64_t)1000000);
