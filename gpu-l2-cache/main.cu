@@ -8,7 +8,7 @@
 using namespace std;
 
 #ifdef __NVCC__
-using dtype = float;
+using dtype = double;
 #else
 using dtype = float4;
 #endif
@@ -43,8 +43,7 @@ double callKernel(int blockCount, int blockRun) {
   GPU_ERROR(cudaPeekAtLastError());
   return 0.0;
 }
-
-template <int N> void measure(int blockRun) {
+	template <int N> void measure(int blockRun) {
 
   const int blockSize = 1024;
 
@@ -138,5 +137,5 @@ int main(int argc, char **argv) {
 #else
     measure<24>(i);
 #endif
-  }
+}
 }
