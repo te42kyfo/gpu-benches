@@ -93,7 +93,9 @@ Measures bandwidths of shared cache levels. This benchmark explicitly does not t
 
 ![cache plot](gpu-l2-cache/cuda-cache.svg)
 
-All three GPUs have a similar L2 cache bandwidths of about 5.x TB/s, though with different capactities. The stand out here is the RX6900XT, which has a second shared cache level, the 128MB Infinity Cache. At almost 1.92 TB/s, it is as fast as the A100's DRAM.
+All three GPUs have a similar L2 cache bandwidths of about 5.x TB/s, though with different capactities. The most remarkable observation here is the H100, which starts out with a huge bandwidth that then levels off. This could be the effect of the Distributed Shared Memory Network, that allows accesses to hit in other SM's L1 cache. NVIDIA has not specified whether this network only works for explicit addresing with shared memory or also global load caching. 
+
+Another remarkable observation is the RX6900XT, which has a second shared cache level, the 128MB Infinity Cache. At almost 1.92 TB/s, it is as fast as the A100's DRAM.
 At the very beginning, the RX6900XT semi-shared L1 cache can be seen, where for some block placements the 4 L1 caches have a small effect. 
 
 
