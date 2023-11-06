@@ -9,6 +9,8 @@ This is a collection of GPU micro benchmarks. Each test is designed to test a pa
 
 Benchmarks that are called ```gpu-<benchmarkname>``` are hipifyable! Whereas the default Makefile target builds the CUDA executable ```cuda-<benchmarkname>```, the target ```make hip-<benchmarkname>``` uses the hipify-perl tool to create a file ```main.hip``` from the ```main.cu``` file, and builds it using the hip compiler. The CUDA main files are written so that the hipify tool works without further intervention. 
 
+Also have a look at the [gpu-metrics](gpu-metrics) functions, which provide a concise way of measuring hardware performance counter metrics of a kernel launch inside the running program. 
+
 
 
 ## gpu-stream
