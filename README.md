@@ -11,6 +11,7 @@ Benchmarks that are called ```gpu-<benchmarkname>``` are hipifyable! Whereas the
 
 Also have a look at the [gpu-metrics](gpu-metrics) functions, which provide a concise way of measuring hardware performance counter metrics of a kernel launch inside the running program. 
 
+If any of this is useful, stars and citations are welcome!
 
 
 ## gpu-stream
