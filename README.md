@@ -9,6 +9,9 @@ This is a collection of GPU micro benchmarks. Each test is designed to test a pa
 
 Benchmarks that are called ```gpu-<benchmarkname>``` are hipifyable! Whereas the default Makefile target builds the CUDA executable ```cuda-<benchmarkname>```, the target ```make hip-<benchmarkname>``` uses the hipify-perl tool to create a file ```main.hip``` from the ```main.cu``` file, and builds it using the hip compiler. The CUDA main files are written so that the hipify tool works without further intervention. 
 
+Also have a look at the [gpu-metrics](gpu-metrics) functions, which provide a concise way of measuring hardware performance counter metrics of a kernel launch inside the running program. 
+
+If any of this is useful, stars and citations are welcome!
 
 
 ## gpu-stream
@@ -93,10 +96,13 @@ Measures bandwidths of shared cache levels. This benchmark explicitly does not t
 
 ![cache plot](gpu-l2-cache/cuda-cache.svg)
 
-All three GPUs have a similar L2 cache bandwidths of about 5.x TB/s, though with different capactities. The most remarkable observation here is the H100, which starts out with a huge bandwidth that then levels off. This could be the effect of the Distributed Shared Memory Network, that allows accesses to hit in other SM's L1 cache. NVIDIA has not specified whether this network only works for explicit addresing with shared memory or also global load caching. 
+All three GPUs have a similar L2 cache bandwidths of about 5.x TB/s, though with different capactities. 
 
-Another remarkable observation is the RX6900XT, which has a second shared cache level, the 128MB Infinity Cache. At almost 1.92 TB/s, it is as fast as the A100's DRAM.
+A remarkable observation is the RX6900XT, which has a second shared cache level, the 128MB Infinity Cache. At almost 1.92 TB/s, it is as fast as the A100's DRAM.
 At the very beginning, the RX6900XT semi-shared L1 cache can be seen, where for some block placements the 4 L1 caches have a small effect. 
+The same applies to the H100, which has a larger L1 cache with an increased chance for a thread block to find the data it wants to work on already in the L1 cache loaded in by the previous thread block. This only works for the small data sets, where there are only a few different data blocks and this chance is still significant. This is not attributable to the Distributed Shared Memory Network, that allows to load from other SM's shared memory, because it only works for explicit shared memory loads and not global loads. This would require tag checking every L1 cache in the GPC for any load. 
+
+
 
 
 ## gpu-strides
