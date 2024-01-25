@@ -2,7 +2,7 @@
 
 Queue 10000 calls of a streaming SCALE kernel of varying size. Use commandline option "-graph" to use the cudaGraph/hipGraph API. 
 
-![latency plot](gpu-small-kernels/repeated-stream.svg)
+![latency plot](repeated-stream.svg)
 
 
 Each device gets a fit of \$a,b\$ for the function
