@@ -12,7 +12,7 @@ import sys
 sys.path.append("..")
 from device_order import *
 
-fig, ax = plt.subplots(figsize=(11, 8))
+fig, ax = plt.subplots(figsize=(9, 7))
 
 
 maxbars = {}
