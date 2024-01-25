@@ -12,7 +12,7 @@ import sys
 sys.path.append("..")
 from device_order import *
 
-fig, ax = plt.subplots(figsize=(10, 6))
+fig, ax = plt.subplots(figsize=(11, 8))
 
 
 maxbars = {}
@@ -21,7 +21,15 @@ minbars = {}
 peakBW = [897, 1555, 2039, 2039, 1229, 1638]
 
 
-filesToInclude = ["L40", "A100", "RX6900XT", "MI210"]
+filesToInclude = ["L40", "A100", "RX6900XT", "MI210", "H200"]
+# filesToInclude = ["A100", "MI210_ROCM56", "MI210_ROCM60"]
+
+
+def getIncludeNumber(filename):
+    for i in range(len(filesToInclude)):
+        if filename.upper().startswith(filesToInclude[i]):
+            return i
+    return len(filesToInclude) + 1
 
 
 def fitValues(xdata, ydata, color=None):
@@ -31,7 +39,7 @@ def fitValues(xdata, ydata, color=None):
     #    return a * np.exp(-b * np.exp(-c * x))
 
     def func(x, a, b):
-        return x / (a / 1e9 + (x * 16 / 1e9 / b))
+        return x / (a / 1e9 + (x / 1e9 / b))
 
     best = 0
     lim = 50
@@ -50,9 +58,9 @@ def fitValues(xdata, ydata, color=None):
         # print(popt)
         # print(pcov)
         # print(mesg)
-        perr = np.sqrt(np.diag(pcov))[1] + np.sqrt(np.diag(pcov))[0]
-        if perr / lim / lim < best or best == 0:
-            best = perr / lim / lim
+        perr = np.sqrt(np.diag(pcov))[0]  # + np.sqrt(np.diag(pcov))[0]
+        if perr < best or best == 0:
+            best = perr
             bestLim = lim
 
         print("fit: a=%5.0f ns,   b=%5.0f GB/s," % (popt[0], popt[1]))
@@ -73,8 +81,8 @@ def fitValues(xdata, ydata, color=None):
     # xdata.sort()
 
     plt.plot(
-        xdata[:lim] * 8 / 1024,
-        func(xdata[:lim], *popt) / 1e9 * 16,
+        xdata[:lim] / 1024,
+        func(xdata[:lim], *popt) / 1e9,
         "-",
         color="black",  # icolor,
         label="fit: a=%5.0f ns, \n     b=%5.0f GB/s," % (popt[0], popt[1]),
@@ -85,12 +93,11 @@ def fitValues(xdata, ydata, color=None):
 
 def fitCurve(splitA, splitB, color=None):
     fitValues(
-        sizes[splitA:splitB] / 8,
+        sizes[splitA:splitB],
         np.array(
-            [
-                max([v[b] / 16 if b < len(v) else 0 for b in range(len(bw[0]))])
-                for v in bw
-            ][splitA:splitB]
+            [max([v[b] if b < len(v) else 0 for b in range(len(bw[0]))]) for v in bw][
+                splitA:splitB
+            ]
         )
         * 1e9,
         color,
@@ -115,7 +122,7 @@ def getData(filename):
                 continue
             dims.append(float(row[0]))
             values = []
-            for r in row[1:]:
+            for r in row[2:]:
                 if len(r) == 0:
                     continue
                 values.append(float(r))
@@ -133,11 +140,18 @@ def getColor(b):
     return tuple(min(1.0, math.log2(c) / math.log2(128) * 1.4) for c in b)
 
 
-for filename in sorted(os.listdir("."), key=lambda f1: getOrderNumber(f1)):
-    if any([filename.upper().startswith(f) for f in filesToInclude]):
+for filename in sorted(sorted(os.listdir(".")), key=lambda f1: getOrderNumber(f1)):
+    if (
+        any([filename.upper().startswith(f) for f in filesToInclude])
+        and not "linear" in filename
+    ):
         dims, bw = getData(filename)
+        if len(bw) < 3:
+            continue
+
         dims = np.array(dims)
-        sizes = dims * dims * 16
+        sizes = dims * 16
+
         lineStyle["marker"] = None  # "|" if "graph" in filename.lower() else "_"
         lineStyle["linestyle"] = "--" if "graph" in filename.lower() else "-"
         lineStyle["alpha"] = 1
@@ -175,8 +189,27 @@ for filename in sorted(os.listdir("."), key=lambda f1: getOrderNumber(f1)):
         # fitCurve(102, 250)
 
 
+def func(x, a, b):
+    return x / (a / 1e9 + (x * 16 / 1e9 / b))
+
+
+# values = np.arange(256, 32 * 1024, 256)
+# ax.plot(
+#    values,
+#    func(values * 1024 / 8, 3000, 2100) * 1e-9 * 16,
+#    color="red",
+#    linewidth=3,
+#    label="MI300X, \n fit: a = 15000 GB/s, \n      b = 3000 ns",
+# )
+
+# values = np.arange(32 * 1024, 1024 * 1024, 256)
+# ax.plot(
+#    values, func(values * 1024 / 8, 3000, 500) * 1e-9 * 16, color="red", linewidth=3
+# )
+
+
 ax.set_xlabel("grid size, kB")
-ax.set_ylabel("GLup/s")
+ax.set_ylabel("GB/s")
 ax.set_xscale("log")
 
 ax.set_xscale("log")
@@ -189,10 +222,10 @@ ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 # ax.grid()
 ax.legend()
 ax.set_ylim([0, ax.get_ylim()[1]])
-# ax.set_xlim([32, 256 * 1024])
+ax.set_xlim([64, 512 * 1024])
 
 fig.tight_layout()
-fig.savefig("repeated-stencil.svg", dpi=300)
+fig.savefig("repeated-stream.svg", dpi=300)
 
 
 plt.show()
