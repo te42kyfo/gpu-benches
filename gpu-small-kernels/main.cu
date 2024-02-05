@@ -69,7 +69,7 @@ void measureFunc(kernel_ptr_type func, int size, dim3 blockSize) {
 
   func<<<grid, blockSize>>>(dA, dB, size, false);
 
-  int iters = 10000;
+  int iters = min(20000, max(2000, 100000 * 10000 / size));
 
   if (useCudaGraph) {
 
@@ -138,11 +138,11 @@ int main(int argc, char **argv) {
   GPU_ERROR(cudaDeviceSynchronize());
 
   for (int d = 4 * 1024; d < 16 * 16 * 1024 * 1024;
-       d += std::max((int)1, (int)(d * 0.08))) {
+       d += std::max((int)1, (int)(d * 0.06))) {
 
     std::cout << d << "  " << d * sizeof(double) * 2 / 1024 << "kB  ";
 
-    for (int xblock = 16; xblock <= 1024; xblock *= 2) {
+    for (int xblock = 32; xblock <= 1024; xblock *= 2) {
       measureFunc(scale<double>, d, dim3(xblock, 1, 1));
     }
     std::cout << "\n";

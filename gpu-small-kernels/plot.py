@@ -12,7 +12,7 @@ import sys
 sys.path.append("..")
 from device_order import *
 
-fig, ax = plt.subplots(figsize=(9, 7))
+fig, ax = plt.subplots(figsize=(8, 6))
 
 
 maxbars = {}
@@ -21,8 +21,9 @@ minbars = {}
 peakBW = [897, 1555, 2039, 2039, 1229, 1638]
 
 
-filesToInclude = ["L40", "A100", "RX6900XT", "MI210", "H200"]
+# filesToInclude = ["L40", "A100", "RX6900XT", "MI210", "H200"]
 # filesToInclude = ["A100", "MI210_ROCM56", "MI210_ROCM60"]
+filesToInclude = ["RX6900XT_ROCM56", "RX6900XT_ROCM60", "MI210"]
 
 
 def getIncludeNumber(filename):
@@ -33,6 +34,10 @@ def getIncludeNumber(filename):
 
 
 def fitValues(xdata, ydata, color=None):
+    ydata[2:-2] = (
+        ydata[0:-4] + ydata[1:-3] + ydata[2:-2] + ydata[3:-1] + ydata[4:]
+    ) / 5
+
     from scipy.optimize import curve_fit
 
     # def func(x, a, b, c):
@@ -42,12 +47,15 @@ def fitValues(xdata, ydata, color=None):
         return x / (a / 1e9 + (x / 1e9 / b))
 
     best = 0
-    lim = 50
+    lim = 1
     bestLim = lim
     perr = -1
 
-    while lim < len(xdata):
+    while lim + 1 < len(xdata):
         lim += 1
+        if xdata[lim] < 3 * 1024 * 1024:
+            continue
+
         popt, pcov, infodict, mesg, ier = curve_fit(
             func,
             xdata[:lim],
@@ -63,7 +71,7 @@ def fitValues(xdata, ydata, color=None):
             best = perr
             bestLim = lim
 
-        print("fit: a=%5.0f ns,   b=%5.0f GB/s," % (popt[0], popt[1]))
+        print("%d fit: a=%5.0f ns,   b=%5.0f GB/s," % (lim, popt[0], popt[1]))
     print()
     # print(perr)
 
@@ -87,6 +95,8 @@ def fitValues(xdata, ydata, color=None):
         color="black",  # icolor,
         label="fit: a=%5.0f ns, \n     b=%5.0f GB/s," % (popt[0], popt[1]),
         zorder=-1,
+        linewidth=2,
+        alpha=1.0,
     )
     return perr
 
@@ -154,15 +164,15 @@ for filename in sorted(sorted(os.listdir(".")), key=lambda f1: getOrderNumber(f1
 
         lineStyle["marker"] = None  # "|" if "graph" in filename.lower() else "_"
         lineStyle["linestyle"] = "--" if "graph" in filename.lower() else "-"
-        lineStyle["alpha"] = 1
-
+        lineStyle["alpha"] = 0.8
         b = 2
         ax.plot(
             sizes / 1024,
             [max([v[b] if b < len(v) else 0 for b in range(len(bw[0]))]) for v in bw],
             label=filename[:-4].upper(),
-            color="C" + str(getOrderNumber(filename)),
+            color="C" + str(getIncludeNumber(filename)),
             **lineStyle,
+            zorder=0
         )
 
         # rx6900
@@ -225,7 +235,7 @@ ax.set_ylim([0, ax.get_ylim()[1]])
 ax.set_xlim([64, 512 * 1024])
 
 fig.tight_layout()
-fig.savefig("repeated-stream.svg", dpi=300)
+fig.savefig("repeated-stream.png", dpi=300)
 
 
 plt.show()
