@@ -67,26 +67,6 @@ __global__ void uniformKernel(T *A, T *B, int zero, int alignment) {
 }
 
 template <typename T, int N>
-__global__ void uniformStrideKernel(T *A, T *B, int zero, int alignment) {
-  int tidx = threadIdx.x;
-
-  T sum = T(0);
-  T *A2 = A + tidx + alignment;
-
-  for (int n = 0; n < N; n += 10) {
-    if (sum == 1232)
-      A2 += zero * n;
-    sum += A2[1] * A2[2];
-    sum += A2[4] * A2[3];
-    sum += A2[5] * A2[6];
-    sum += A2[8] * A2[7];
-    sum += A2[9] * A2[10];
-  }
-  if (sum == T(123123.23))
-    B[tidx] = sum;
-}
-
-template <typename T, int N>
 __global__ void blockKernel(T *A, T *B, int zero, int pitch) {
   int tidx = threadIdx.x;
   int tidy = threadIdx.y % 64;
@@ -100,6 +80,25 @@ __global__ void blockKernel(T *A, T *B, int zero, int pitch) {
     sum += A2[48] * A2[32];
     sum += A2[64] * A2[96];
     sum += A2[128] * A2[0];
+  }
+
+  if (sum == T(123123.23))
+    B[tidx] = sum;
+}
+
+template <typename T, int N>
+__global__ void strideKernel(T *A, T *B, int zero, int stride) {
+  int tidx = threadIdx.x;
+
+  T sum = T(0);
+  T *A2 = A + tidx * stride;
+
+  for (int n = 0; n < N; n += 8) {
+    A2 += zero;
+    sum += A2[0] * A2[1];
+    sum += A2[2] * A2[3];
+    sum += A2[4] * A2[5];
+    sum += A2[6] * A2[7];
   }
 
   if (sum == T(123123.23))
@@ -129,7 +128,7 @@ __global__ void stencilKernel(T *A, T *B, int zero, int pitch) {
 #ifdef __HIPCC__
 std::vector<const char *> metrics = {
     //"TA_TA_BUSY_sum", "TA_TOTAL_WAVEFRONTS_sum",
-    "TA_UTIL", "TA_BUSY_avr"
+    //"TA_UTIL", "TA_BUSY_avr"
     // "TA_ADDR_STALLED_BY_TC_CYCLES_sum",
     // "TA_ADDR_STALLED_BY_TD_CYCLES_sum",
     // "TA_DATA_STALLED_BY_TC_CYCLES_sum",
@@ -147,7 +146,7 @@ std::vector<const char *> metrics = {
     // "TCP_GATE_EN2_sum",
     // "TCP_TD_TCP_STALL_CYCLES_sum",
     // "TCP_TCR_TCP_STALL_CYCLES_sum",
-    //"TCP_READ_TAGCONFLICT_STALL_CYCLES_sum",
+    // "TCP_READ_TAGCONFLICT_STALL_CYCLES_sum",
     // "TCP_VOLATILE_sum",
     // "TCP_TOTAL_ACCESSES_sum",
     //  "TCP_TOTAL_READ_sum",
@@ -266,7 +265,7 @@ void format(std::vector<std::vector<double>> values,
   std::vector<double> rowMax(rowLabels.size(), -1.0);
   std::vector<double> rowMin(rowLabels.size(), -1.0);
 
-  for (int row = 0; row < strings.size(); row++) {
+  for (int row = 0; row < (int)strings.size(); row++) {
     strings[row].push_back(rowLabels[row]);
     for (auto &v : values) {
       double value = v[row];
@@ -286,7 +285,7 @@ void format(std::vector<std::vector<double>> values,
     }
   }
 
-  for (int row = 0; row < strings.size(); row++) {
+  for (int row = 0; row < (int)strings.size(); row++) {
     colors[row].push_back(0.5);
     for (auto &v : values) {
       double value = v[row];
@@ -296,7 +295,7 @@ void format(std::vector<std::vector<double>> values,
   }
   std::vector<int> columnLengths;
 
-  for (int i = 0; i < strings[0].size(); i++) {
+  for (int i = 0; i < (int)strings[0].size(); i++) {
     columnLengths.push_back(0);
     for (auto &d : strings) {
       columnLengths[i] = std::max(columnLengths[i], (int)d[i].size());
@@ -305,8 +304,8 @@ void format(std::vector<std::vector<double>> values,
 
   std::cout << "\n";
 
-  for (int row = 0; row < strings.size(); row++) {
-    for (int col = 0; col < strings[row].size(); col++) {
+  for (int row = 0; row < (int)strings.size(); row++) {
+    for (int col = 0; col < (int)strings[row].size(); col++) {
       // std::cout << "\033[0;" << 31 + i / 3 << "m";
       //
       // std::cout << setprecision(val < 50 && val - floorf(val) > 0.001 ? 3 :
@@ -342,70 +341,44 @@ int main(int argc, char **argv) {
     rowLabels.push_back(metricName);
   }
 
-  std::cout << "uniform double\n";
-  values.clear();
-  for (int i = 0; i < 10; i++) {
-    values.push_back(measureFunc<double, 10000>(uniformKernel<double, 10000>,
-                                                dim3(1024, 1, 1), i));
-    values.back().insert(begin(values.back()), i);
-  }
-  values.clear();
-  std::cout << "uniform float\n";
-  format(values, rowLabels);
-  for (int i = 0; i < 10; i++) {
-    values.push_back(measureFunc<float, 10000>(uniformKernel<float, 10000>,
+  std::cout << "\nfloat stride\n";
+  for (int i = 0; i < 16; i++) {
+    values.push_back(measureFunc<float, 10000>(strideKernel<float, 10000>,
                                                dim3(1024, 1, 1), i));
     values.back().insert(begin(values.back()), i);
   }
   format(values, rowLabels);
+  values.clear();
 
-  /*
-      values.clear();
-      for (int i = 0; i < 4; i++) {
-        values.push_back(measureFunc<double, 10000>(
-            uniformStrideKernel<double, 10000>, dim3(1024, 1, 1), i));
-        values.back().insert(begin(values.back()), i);
-      }
-      for (int i = 0; i < 4; i++) {
-        values.push_back(measureFunc<float, 10000>(
-            uniformStrideKernel<float, 10000>, dim3(1024, 1, 1), i));
-        values.back().insert(begin(values.back()), i);
-      }
-      format(values, rowLabels);
-
-      values.clear();
-      for (int i = 4; i <= 16; i *= 2) {
-        for (int pitch = 0; pitch <= 1; pitch++) {
-          values.push_back(measureFunc<double, 10000>(
-              blockKernel<double, 10000>, dim3(i, 1024 / i, 1), 1000 + pitch));
-          values.back().insert(begin(values.back()), i);
-        }
-      }
-      format(values, rowLabels);
-    */
-  /*
-  for (int i = 1; i <= 64; i *= 2) {
-    values.clear();
-    for (int pitch = 0; pitch <= 4; pitch++) {
-      values.push_back(measureFunc<float, 10000>(
-          blockKernel<float, 10000>, dim3(i, 1024 / i, 1), 1024 * 16 + pitch));
-      values.back().insert(begin(values.back()), pitch);
-    }
-    std::cout << i << "\n";
-    format(values, rowLabels);
+  std::cout << "\ndouble stride\n";
+  for (int i = 0; i < 16; i++) {
+    values.push_back(measureFunc<double, 10000>(strideKernel<double, 10000>,
+                                                dim3(1024, 1, 1), i));
+    values.back().insert(begin(values.back()), i);
   }
 
-  for (int i = 1; i <= 64; i *= 2) {
-    values.clear();
-    for (int pitch = 0; pitch <= 4; pitch++) {
-      values.push_back(measureFunc<double, 10000>(
-          blockKernel<double, 10000>, dim3(i, 1024 / i, 1), 1024 * 16 + pitch));
-      values.back().insert(begin(values.back()), pitch);
-    }
-    std::cout << i << "\n";
-    format(values, rowLabels);
+  format(values, rowLabels);
+  values.clear();
+  std::cout << "\nuniform double\n";
+  values.clear();
+  for (int i = 0; i < 4; i++) {
+    values.push_back(measureFunc<double, 10000>(uniformKernel<double, 10000>,
+                                                dim3(1024, 1, 1), i));
+    values.back().insert(begin(values.back()), i);
   }
-*/
+
+  format(values, rowLabels);
+  values.clear();
+
+  std::cout << "\nuniform float\n";
+  for (int i = 0; i < 4; i++) {
+    values.push_back(measureFunc<float, 10000>(uniformKernel<float, 10000>,
+                                               dim3(1024, 1, 1), i));
+    values.back().insert(begin(values.back()), i);
+  }
+
+  format(values, rowLabels);
+  values.clear();
 
   std::cout << "\nfloat block strides:\n";
   for (int i = 1; i <= 64; i *= 2) {
@@ -430,18 +403,8 @@ int main(int argc, char **argv) {
     std::cout << i << "\n";
     format(values, rowLabels);
   }
-  /*
-    for (int i = 1; i <= 64; i *= 2) {
-      values.clear();
-      for (int pitch = 0; pitch <= 16; pitch++) {
-        values.push_back(measureFunc<double, 10000>(stencilKernel<double,
-    10000>, dim3(i, 1024 / i, 1), 1024 * 16 + pitch));
-        values.back().insert(begin(values.back()), pitch);
-      }
-      std::cout << i << "\n";
-      format(values, rowLabels);
-    }*/
   values.clear();
+
   std::cout << "\n";
   GPU_ERROR(cudaFree(dA));
   GPU_ERROR(cudaFree(dB));
