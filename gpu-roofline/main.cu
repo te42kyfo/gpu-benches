@@ -4,10 +4,13 @@
 #include <cuda_runtime.h>
 #include <iomanip>
 #include <iostream>
-#include <nvml.h>
 #include <omp.h>
 #include <sys/time.h>
 #include <unistd.h>
+
+#include "../MeasurementSeries.hpp"
+
+#include "../gpu-stats.h"
 
 using namespace std;
 
@@ -27,12 +30,12 @@ __global__ void testfun(T *const __restrict__ dA, T *const __restrict__ dB,
   T sum = 0;
 
 #pragma unroll 1
-  for (int i = 0; i < M; i+=2) {
+  for (int i = 0; i < M; i += 2) {
     T a = sA[i * BLOCKSIZE];
     T b = sB[i * BLOCKSIZE];
     T v = a - b;
-    T a2 = sA[(i+1) * BLOCKSIZE];
-    T b2 = sB[(i+1) * BLOCKSIZE];
+    T a2 = sA[(i + 1) * BLOCKSIZE];
+    T b2 = sB[(i + 1) * BLOCKSIZE];
     T v2 = a2 - b2;
     for (int i = 0; i < N; i++) {
       v = v * a - b;
@@ -44,25 +47,25 @@ __global__ void testfun(T *const __restrict__ dA, T *const __restrict__ dB,
     dC[blockIdx.x] = sum;
 }
 
-
 template <typename T, int N, int M, int BLOCKSIZE>
-__global__ void testfun_max_power(T *const __restrict__ dA, T *const __restrict__ dB,
-                        T *dC) {
-  T *sA = dA + (threadIdx.x) + (blockIdx.x/2) * BLOCKSIZE * (M/8);
-  T *sB = dB + (threadIdx.x) + (blockIdx.x/2) * BLOCKSIZE * (M/8);
+__global__ void testfun_max_power(T *const __restrict__ dA,
+                                  T *const __restrict__ dB, T *dC) {
+  T *sA = dA + threadIdx.x + (blockIdx.x / 2) * BLOCKSIZE * M;
+  T *sB = dB + threadIdx.x + (blockIdx.x / 2) * BLOCKSIZE * M;
 
   T sum = 0;
-#pragma unroll 1
-  for (int i = 0; i < M; i +=2) {
-    T a = sA[(i / 64) * BLOCKSIZE];
-    T b = sB[(i / 64) * BLOCKSIZE];
+
+  // #pragma unroll 1
+  for (int i = 0; i < M; i += 2) {
+    T a = sA[i * BLOCKSIZE];
+    T b = sB[i * BLOCKSIZE];
     T v = a - b;
-    T a2 = sA[(i / 64 + 1) * BLOCKSIZE];
-    T b2 = sB[(i / 64 + 1) * BLOCKSIZE];
+    T a2 = sA[(i + 1) * BLOCKSIZE];
+    T b2 = sB[(i + 1) * BLOCKSIZE];
     T v2 = a2 - b2;
     for (int i = 0; i < N; i++) {
-      v = v * a - a;
-      v2 = v2 * a - a;
+      v = v * a - b;
+      v2 = v2 * a2 - b2;
     }
     sum += v + v2;
   }
@@ -71,10 +74,9 @@ __global__ void testfun_max_power(T *const __restrict__ dA, T *const __restrict_
 }
 
 int main(int argc, char **argv) {
-  nvmlInit();
 
-  typedef float dtype;
-  const int M = 8000;
+  typedef double dtype;
+  const int M = 4000;
   // PARN is a constant from the Makefile, set via -DPARN=X
   const int N = PARN;
   const int BLOCKSIZE = 256;
@@ -87,16 +89,10 @@ int main(int argc, char **argv) {
     GPU_ERROR(cudaSetDevice(omp_get_thread_num()));
 #pragma omp barrier
     int deviceId;
-    cudaGetDevice(&deviceId);
+    GPU_ERROR(cudaGetDevice(&deviceId));
     cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, deviceId);
+    GPU_ERROR(cudaGetDeviceProperties(&prop, deviceId));
     int numBlocks;
-
-     nvmlDevice_t device;
-    nvmlDeviceGetHandleByIndex(deviceId, &device);
-    unsigned int power = 0;
-    unsigned int clock = 0;
-    unsigned int temperature = 0;
 
     GPU_ERROR(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &numBlocks, testfun<dtype, N, M, BLOCKSIZE>, BLOCKSIZE, 0));
@@ -106,7 +102,7 @@ int main(int argc, char **argv) {
     dtype *dA = NULL;
     dtype *dB = NULL;
     dtype *dC = NULL;
-    size_t iters = 500;
+    size_t iters = 1000;
 
     GPU_ERROR(cudaMalloc(&dA, data_len * sizeof(dtype)));
     GPU_ERROR(cudaMalloc(&dB, data_len * sizeof(dtype)));
@@ -115,20 +111,26 @@ int main(int argc, char **argv) {
     initKernel<<<blockCount, 256>>>(dA, data_len);
     initKernel<<<blockCount, 256>>>(dB, data_len);
     initKernel<<<blockCount, 256>>>(dC, data_len);
-    cudaDeviceSynchronize();
-
+    GPU_ERROR(cudaDeviceSynchronize());
 
 #pragma omp barrier
 
     double start = dtime();
     for (size_t iter = 0; iter < iters; iter++) {
-      testfun_max_power<dtype, N, M, BLOCKSIZE><<<blockCount, BLOCKSIZE>>>(dA, dB, dC);
+      testfun<dtype, N, M, BLOCKSIZE><<<blockCount, BLOCKSIZE>>>(dA, dB, dC);
     }
-    usleep(1000000);
-    nvmlDeviceGetClockInfo(device, NVML_CLOCK_SM, &clock);
-    nvmlDeviceGetPowerUsage(device, &power);
-    nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &temperature);
-    cudaDeviceSynchronize();
+    MeasurementSeries powerSeries;
+    MeasurementSeries clockSeries;
+
+    auto stats = getGPUStats(deviceId);
+    for (int i = 0; i < 21; i++) {
+      usleep(100000);
+      stats = getGPUStats(deviceId);
+      powerSeries.add(stats.power);
+      clockSeries.add(stats.clock);
+    }
+
+    GPU_ERROR(cudaDeviceSynchronize());
     double end = dtime();
     GPU_ERROR(cudaGetLastError());
 
@@ -144,8 +146,9 @@ int main(int argc, char **argv) {
              << iters * 2 * data_len * sizeof(dtype) / (end - start) * 1.0e-9
              << " GB/s    " << setw(6)
              << iters * (2 + N * 2) * data_len / (end - start) * 1.0e-9
-             << " GF/s   " << clock << " Mhz   " << power / 1000 << " W   "
-             << temperature << "°C\n";
+             << " GF/s   " << clockSeries.median() << " Mhz   "
+             << powerSeries.maxValue() / 1000 << " W   " << stats.temperature
+             << "°C\n";
       }
     }
     GPU_ERROR(cudaFree(dA));
