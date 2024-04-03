@@ -7,11 +7,7 @@
 
 using namespace std;
 
-#ifdef __NVCC__
 using dtype = double;
-#else
-using dtype = float4;
-#endif
 dtype *dA, *dB;
 
 __global__ void initKernel(dtype *A, size_t N) {
@@ -26,24 +22,24 @@ __global__ void sumKernel(dtype *__restrict__ A, const dtype *__restrict__ B,
                           int blockRun) {
   dtype localSum = dtype(0);
 
-  for (int i = 0; i < N; i++) {
-    int idx = blockDim.x * blockRun * i + (blockIdx.x % blockRun) * BLOCKSIZE +
-              threadIdx.x;
-    localSum += B[idx];
-    // A[idx] = dtype(1.23) * B[idx];
+  for (int i = 0; i < N / 2; i++) {
+    int idx =
+        (blockDim.x * blockRun * i + (blockIdx.x % blockRun) * BLOCKSIZE) * 2 +
+        threadIdx.x;
+    localSum += B[idx] * B[idx + BLOCKSIZE];
   }
+
   localSum *= (dtype)1.3;
   if (threadIdx.x > 1233 || localSum == (dtype)23.12)
     A[threadIdx.x] += localSum;
 }
-
 template <int N, int blockSize>
 double callKernel(int blockCount, int blockRun) {
   sumKernel<N, blockSize><<<blockCount, blockSize>>>(dA, dB, blockRun);
   GPU_ERROR(cudaPeekAtLastError());
   return 0.0;
 }
-	template <int N> void measure(int blockRun) {
+template <int N> void measure(int blockRun) {
 
   const int blockSize = 1024;
 
@@ -57,7 +53,7 @@ double callKernel(int blockCount, int blockRun) {
   GPU_ERROR(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
       &maxActiveBlocks, sumKernel<N, blockSize>, blockSize, 0));
 
-  int blockCount = 100000;
+  int blockCount = 200000;
 
   // GPU_ERROR(cudaDeviceSetCacheConfig(cudaFuncCachePreferShared));
 
@@ -68,7 +64,7 @@ double callKernel(int blockCount, int blockRun) {
   MeasurementSeries L2_write;
 
   GPU_ERROR(cudaDeviceSynchronize());
-  for (int i = 0; i < 7; i++) {
+  for (int i = 0; i < 11; i++) {
     const size_t bufferCount = blockRun * blockSize * N + i * 128;
     GPU_ERROR(cudaMalloc(&dA, bufferCount * sizeof(dtype)));
     initKernel<<<52, 256>>>(dA, bufferCount);
@@ -131,11 +127,11 @@ int main(int argc, char **argv) {
        << setw(11) << "spread"     //
        << setw(15) << "Eff. bw\n"; //
 
-  for (int i = 2; i < 10000; i += max(1.0, i * 0.1)) {
+  for (int i = 3; i < 10000; i += max(1.0, i * 0.1)) {
 #ifdef __NVCC__
-    measure<32>(i);
+    measure<64>(i);
 #else
-    measure<24>(i);
+    measure<64>(i);
 #endif
-}
+  }
 }

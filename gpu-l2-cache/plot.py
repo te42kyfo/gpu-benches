@@ -19,9 +19,6 @@ for filename in sorted(os.listdir("."), key=lambda f1: getOrderNumber(f1)):
         continue
 
     with open(filename, newline="") as csvfile:
-        style = "P-"
-        if filename.endswith("f.txt"):
-            style = "o--"
 
         csvreader = csv.reader(csvfile, delimiter=" ", skipinitialspace=True)
         sizes = []
@@ -39,7 +36,6 @@ for filename in sorted(os.listdir("."), key=lambda f1: getOrderNumber(f1)):
         ax.plot(
             sizes,
             bw,
-            style,
             label=filename[:-4].upper(),
             color="C" + str(getOrderNumber(filename)),
             **lineStyle
@@ -47,7 +43,6 @@ for filename in sorted(os.listdir("."), key=lambda f1: getOrderNumber(f1)):
         ax2.plot(
             sizes,
             L2bw,
-            style,
             label=filename[:-4].upper(),
             color="C" + str(getOrderNumber(filename)),
             **lineStyle
@@ -76,11 +71,13 @@ ax.set_xticks([1024, 4 * 1024, 8 * 1024, 20 * 1024, 40 * 1024, 128 * 1024, 1024 
 ax2.set_xticks([1024, 6 * 1024, 20 * 1024, 40 * 1024, 128 * 1024])
 
 fig.autofmt_xdate()
-ax.set_ylim([0, ax.get_ylim()[1] * 1.1])
+ax.set_ylim([0, ax.get_ylim()[1]])
+ax.set_xlim([1024 * 1.5, 1024 * 1024])
 
 fig2.autofmt_xdate()
-ax2.set_ylim([0, ax2.get_ylim()[1] * 1.1])
+ax2.set_xlim([1024 * 1.5, 1024 * 1024])
 
+ax.set_xlim([1024, ax.get_xlim()[1]])
 ax.legend()
 fig.tight_layout()
 
