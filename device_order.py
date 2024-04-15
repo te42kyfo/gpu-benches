@@ -6,15 +6,16 @@ import matplotlib.pyplot as plt
 plt.style.use("bmh")
 
 order = [
+    "a40",
+    "l40",
     "v100",
     "a100_40",
-    "a100_80",
+    "a100",
     "h100_pcie",
+    "h200",
     "mi100",
     "mi210",
     "rx6900xt",
-    "a40",
-    "l40",
 ]
 
 
@@ -25,4 +26,4 @@ def getOrderNumber(f):
     return len(order) + 1
 
 
-lineStyle = {"linewidth": 2, "alpha": 0.7, "markersize": 4, "marker": "P"}
+lineStyle = {"linewidth": 1.5, "alpha": 1, "markersize": 4, "marker": ""}

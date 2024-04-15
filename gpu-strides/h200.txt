@@ -1,0 +1,50 @@
+clock: 1980 1980 1980 1980 1980 1980 1980 1980 1980 1980 1980 1980 1980 1980 1980 1980 1980 1980 1980 1980 
+float stride     0    0    1.01    126   1.00   1.00   0.03 
+float stride     1    1    1.01    126   1.00   1.00   0.04 
+float stride     2    2    2.01     64   2.00   1.22   0.02 
+float stride     3    3    1.63     79   1.00   1.62   0.04 
+float stride     4    4    4.01   32.0   4.00   1.84   0.05 
+float stride     5    5    2.00     64   1.00   2.00   0.10 
+float stride     6    6    2.32     55   2.00   2.31   0.04 
+float stride     7    7    2.41     53   1.00   2.41   0.03 
+float stride     8    8     8.0   16.0    8.0   2.72   0.11 
+float stride     9    9    3.00   42.6   1.00   3.00   0.04 
+float stride    10   10    3.16   40.5   2.00   3.16   0.04 
+float stride    11   11    3.41   37.5   1.00   3.41   0.08 
+float stride    12   12    4.01   32.0   4.00   3.62   0.05 
+float stride    13   13    4.10   31.2   1.00   4.09   0.03 
+float stride    14   14    4.25   30.1   2.00   4.25   0.04 
+float stride    15   15    4.60   27.8   1.00   4.59   0.05 
+
+double stride     0    0    2.01    128   2.00   1.00   0.04 
+double stride     1    1    2.01    128   2.00   1.19   0.03 
+double stride     2    2    4.01     64   4.00   1.75   0.08 
+double stride     3    3    2.32    110   2.00   2.31   0.05 
+double stride     4    4     8.0   32.0    8.0   2.78   0.06 
+double stride     5    5    3.16     81   2.00   3.16   0.05 
+double stride     6    6    4.01     64   4.00   3.72   0.03 
+double stride     7    7    4.32     59   2.00   4.31   0.04 
+double stride     8    8    16.0   16.0   16.0   4.66   0.13 
+double stride     9    9     5.3   48.7   2.00    5.2   0.05 
+double stride    10   10     5.5   46.8   4.00    5.5   0.18 
+double stride    11   11     6.0   42.6   2.00    6.0   0.04 
+double stride    12   12     8.0   32.0    8.0    6.6   0.09 
+double stride    13   13     7.0   36.5   2.00    7.0   0.06 
+double stride    14   14     7.0   36.5   4.00    7.0   0.05 
+double stride    15   15     8.0   32.0   2.00    8.0   0.05 
+
+float block     1  4098     9.3   13.8   2.00    9.2   0.08 
+float block     2  4098    4.82   26.6   1.00   4.81   0.09 
+float block     4  4098    3.00   42.6   2.00   3.00   0.03 
+float block     8  4098    4.01   32.0   4.00   2.12   0.05 
+float block    16  4098    2.01     64   2.00   1.47   0.04 
+float block    32  4098    1.02    125   1.00   1.00   0.04 
+float block    64  4098    1.02    126   1.00   1.00   0.05 
+
+double block     1  4098     9.0   28.4   4.00    9.0   0.07 
+double block     2  4098     5.3   48.7   2.00    5.2   0.07 
+double block     4  4098    4.01     64   4.00   3.25   0.05 
+double block     8  4098    4.01     64   4.00   2.27   0.03 
+double block    16  4098    2.01    128   2.00   1.38   0.04 
+double block    32  4098    2.01    128   2.00   1.00   0.02 
+double block    64  4098    2.01    128   2.00   1.00   0.06 

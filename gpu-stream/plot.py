@@ -97,5 +97,29 @@ ax.set_xlim([0, ax.get_xlim()[1]])
 fig.tight_layout()
 fig.savefig("cuda-stream.svg", dpi=300)
 
+plt.show()
+
+print(maxbars)
+
+fig2, ax2 = plt.subplots(figsize=(8, 4))
+
+valueCount = len(list(maxbars.values())[0])
+for m in range(valueCount):
+    ax2.bar(
+        np.arange(len(maxbars)) + 0.8 * m / valueCount - 0.4,
+        [i[m] for i in maxbars.values()],
+        width=0.8 / valueCount,
+    )
+
+ax2.text(-0.4, 51, "init", rotation=90, color="w")
+ax2.text(-0.28, 51, "read", rotation=90, color="w")
+ax2.text(-0.16, 51, "scale", rotation=90, color="w")
+ax2.text(-0.04, 51, "triad", rotation=90, color="w")
+ax2.text(0.08, 51, "1D3PT", rotation=90, color="w")
+ax2.text(0.22, 51, "1D5pt", rotation=90, color="w")
+
+print(list(maxbars.keys()))
+ax2.set_xticks(range(len(list(maxbars.keys()))))
+ax2.set_xticklabels(list(maxbars.keys()))
 
 plt.show()
