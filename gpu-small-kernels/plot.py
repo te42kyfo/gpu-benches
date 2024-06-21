@@ -12,7 +12,7 @@ import sys
 sys.path.append("..")
 from device_order import *
 
-fig, ax = plt.subplots(figsize=(8, 6))
+fig, ax = plt.subplots(figsize=(12, 8))
 
 
 maxbars = {}
@@ -21,9 +21,9 @@ minbars = {}
 peakBW = [897, 1555, 2039, 2039, 1229, 1638]
 
 
-# filesToInclude = ["L40", "A100", "RX6900XT", "MI210", "H200"]
-# filesToInclude = ["A100", "MI210_ROCM56", "MI210_ROCM60"]
-filesToInclude = ["RX6900XT_ROCM56", "RX6900XT_ROCM60", "MI210"]
+filesToInclude = ["L40", "A100", "RX6900XT", "MI210", "H200"]
+
+# filesToInclude = ["L40", "RX6900XT"]
 
 
 def getIncludeNumber(filename):
@@ -53,7 +53,7 @@ def fitValues(xdata, ydata, color=None):
 
     while lim + 1 < len(xdata):
         lim += 1
-        if xdata[lim] < 3 * 1024 * 1024:
+        if xdata[lim] < 3 * 1024 * 1024 or xdata[lim] > 100 * 1024 * 1024:
             continue
 
         popt, pcov, infodict, mesg, ier = curve_fit(
@@ -66,7 +66,7 @@ def fitValues(xdata, ydata, color=None):
         # print(popt)
         # print(pcov)
         # print(mesg)
-        perr = np.sqrt(np.diag(pcov))[0]  # + np.sqrt(np.diag(pcov))[0]
+        perr = np.diag(pcov)[0] * np.diag(pcov)[1]
         if perr < best or best == 0:
             best = perr
             bestLim = lim
@@ -93,7 +93,7 @@ def fitValues(xdata, ydata, color=None):
         func(xdata[:lim], *popt) / 1e9,
         "-",
         color="black",  # icolor,
-        label="fit: a=%5.0f ns, \n     b=%5.0f GB/s," % (popt[0], popt[1]),
+        label="fit: a=%5.0f ns, b=%5.0f GB/s," % (popt[0], popt[1]),
         zorder=-1,
         linewidth=2,
         alpha=1.0,
@@ -154,6 +154,9 @@ for filename in sorted(sorted(os.listdir(".")), key=lambda f1: getOrderNumber(f1
     if (
         any([filename.upper().startswith(f) for f in filesToInclude])
         and not "linear" in filename
+        and not "graph" in filename
+        and not "pt" in filename
+        and not "gsync" in filename
     ):
         dims, bw = getData(filename)
         if len(bw) < 3:
@@ -163,14 +166,22 @@ for filename in sorted(sorted(os.listdir(".")), key=lambda f1: getOrderNumber(f1
         sizes = dims * 16
 
         lineStyle["marker"] = None  # "|" if "graph" in filename.lower() else "_"
-        lineStyle["linestyle"] = "--" if "graph" in filename.lower() else "-"
+        lineStyle["linestyle"] = (
+            "-."
+            if "gsync" in filename.lower()
+            else (
+                ":"
+                if "pt" in filename.lower()
+                else "--" if "graph" in filename.lower() else "-"
+            )
+        )
         lineStyle["alpha"] = 0.8
         b = 2
         ax.plot(
             sizes / 1024,
             [max([v[b] if b < len(v) else 0 for b in range(len(bw[0]))]) for v in bw],
             label=filename[:-4].upper(),
-            color="C" + str(getIncludeNumber(filename)),
+            color="C" + str(getOrderNumber(filename)),
             **lineStyle,
             zorder=0
         )
