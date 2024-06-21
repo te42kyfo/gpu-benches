@@ -12,7 +12,7 @@ import sys
 sys.path.append("..")
 from device_order import *
 
-fig, ax = plt.subplots(figsize=(12, 8))
+fig, ax = plt.subplots(figsize=(10, 6))
 
 
 maxbars = {}
@@ -166,6 +166,7 @@ for filename in sorted(sorted(os.listdir(".")), key=lambda f1: getOrderNumber(f1
         sizes = dims * 16
 
         lineStyle["marker"] = None  # "|" if "graph" in filename.lower() else "_"
+        lineStyle["linewidth"] = 2
         lineStyle["linestyle"] = (
             "-."
             if "gsync" in filename.lower()
@@ -175,7 +176,6 @@ for filename in sorted(sorted(os.listdir(".")), key=lambda f1: getOrderNumber(f1
                 else "--" if "graph" in filename.lower() else "-"
             )
         )
-        lineStyle["alpha"] = 0.8
         b = 2
         ax.plot(
             sizes / 1024,
@@ -246,7 +246,7 @@ ax.set_ylim([0, ax.get_ylim()[1]])
 ax.set_xlim([64, 512 * 1024])
 
 fig.tight_layout()
-fig.savefig("repeated-stream.png", dpi=300)
+fig.savefig("repeated-stream.svg", dpi=300)
 
 
 plt.show()
